@@ -28,7 +28,7 @@ dependencies = ["cffi>=1.15.0"]
 
 [project.optional-dependencies]
 dev = ["pytest", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
-benchmark = ["imagehash", "Pillow", "pandas", "tabulate", "scikit-learn", "tqdm", "numpy"]
+benchmark = ["imagehash", "opencv-contrib-python-headless", "pdqhash", "numpy", "Pillow"]
 
 [tool.setuptools]
 zip-safe = false
@@ -59,18 +59,22 @@ before-all = "brew install nasm || true"
 [tool.mypy]
 strict = true
 python_version = "3.10"
-files = ["src", "tests", "tools", "setup.py"]
-mypy_path = ["src", "tools"]
+files = ["src", "tests", "tools", "benchmarks", "setup.py"]
+mypy_path = ["src", "tools", "benchmarks/stubs"]
+# The stubs are read through mypy_path, as the modules they describe.
+exclude = ["^benchmarks/stubs/"]
 
 [tool.basedpyright]
 typeCheckingMode = "strict"
-include = ["src", "tests", "tools", "setup.py"]
+include = ["src", "tests", "tools", "benchmarks", "setup.py"]
 # tools/ is imported by setup.py and the tests through sys.path.
-extraPaths = ["tools"]
+extraPaths = ["tools", "native/libphash/tools/site"]
+# Untyped code the benchmarks import: libphash's site tooling and pdqhash.
+stubPath = "benchmarks/stubs"
 pythonVersion = "3.10"
 
 [tool.ruff]
-extend-exclude = ["native", "benchmarks"]
+extend-exclude = ["native"]
 
 [tool.ruff.lint]
 select = [
@@ -78,6 +82,8 @@ select = [
     "ARG", "BLE", "C4", "FA", "FLY", "FURB", "G", "ICN", "ISC", "LOG", "NPY", "PERF",
     "PGH", "PIE", "PYI", "RET", "RSE", "SLOT", "T20", "TC", "TID",
 ]
+# Typographic signs the benchmarks' tables print: d′, 10×, µs.
+allowed-confusables = ["′", "×", "µ"]
 ignore = [
     # A class docstring documents its constructor and dunder methods.
     "D105", "D107",
@@ -100,6 +106,8 @@ convention = "pep257"
 "tests/**" = ["D100", "D103", "S101", "S301", "S307", "S311"]
 # The build runs CMake from PATH or the build environment, with arguments it builds.
 "tools/native.py" = ["S603"]
+# The site's tools are imported after their directory joins sys.path.
+"benchmarks/site.py" = ["E402"]
 # The stub's classes and parameters carry the names of the C types and of the header.
 "src/libphash/_native.pyi" = ["N801", "A002"]
 
