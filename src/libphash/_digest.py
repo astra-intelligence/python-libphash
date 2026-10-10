@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, NoReturn, final
+from typing import TYPE_CHECKING, NoReturn, TypeVar, final
 
 from ._algorithms import DigestKind
 from ._errors import PH_SUCCESS, make_error
@@ -9,6 +9,10 @@ from .exceptions import DigestKindError, InvalidArgumentError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from ._native import double_ptr, ph_digest_t_ptr
+
+_N = TypeVar("_N", int, float)
 
 PH_DIGEST_MAX_BYTES: int = int(lib.PH_DIGEST_MAX_BYTES)
 _UINT64_MAX = (1 << 64) - 1
@@ -97,7 +101,7 @@ class Digest:
     def __setattr__(self, name: str, value: object) -> NoReturn:
         raise AttributeError("Digest is immutable")
 
-    def __reduce__(self) -> tuple[Any, ...]:
+    def __reduce__(self) -> tuple[type[Digest], tuple[bytes, int]]:
         return (Digest, (self._data, int(self._kind)))
 
     def hex(self) -> str:
@@ -114,7 +118,9 @@ class Digest:
 
     # --- Comparisons -----------------------------------------------------------------
 
-    def _pair(self, other: object, metric: str) -> tuple[Any, Any]:
+    def _pair(
+        self, other: object, metric: str
+    ) -> tuple[ph_digest_t_ptr, ph_digest_t_ptr]:
         if not isinstance(other, Digest):
             raise TypeError(f"expected a Digest, got {type(other).__name__}")
         allowed = _METRIC_KINDS[metric]
@@ -189,12 +195,12 @@ class Digest:
         )
 
 
-def digest_from_c(c_digest: Any) -> Digest:
+def digest_from_c(c_digest: ph_digest_t_ptr) -> Digest:
     """Copy a ``ph_digest_t *`` into a Digest."""
     return Digest(bytes(ffi.buffer(c_digest.data, c_digest.size)), int(c_digest.kind))
 
 
-def digest_to_c(digest: Digest) -> Any:
+def digest_to_c(digest: Digest) -> ph_digest_t_ptr:
     """Return a new ``ph_digest_t *`` holding ``digest``."""
     data = digest.data
     c_digest = ffi.new("ph_digest_t *")
@@ -217,7 +223,7 @@ def _wrong_kind(metric: str, kind: DigestKind) -> NoReturn:
     )
 
 
-def _sentinel(value: Any, metric: str) -> Any:
+def _sentinel(value: _N, metric: str) -> _N:
     # The checks in _pair leave the C library nothing to reject; -1 here would be a
     # contract the binding missed.
     if value < 0:
@@ -226,7 +232,10 @@ def _sentinel(value: Any, metric: str) -> Any:
 
 
 def _out_double(
-    func: Callable[[Any, Any, Any], int], a: Any, b: Any, metric: str
+    func: Callable[[ph_digest_t_ptr, ph_digest_t_ptr, double_ptr], int],
+    a: ph_digest_t_ptr,
+    b: ph_digest_t_ptr,
+    metric: str,
 ) -> float:
     out = ffi.new("double *")
     code = func(a, b, out)

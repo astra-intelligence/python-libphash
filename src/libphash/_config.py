@@ -3,11 +3,14 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass
-from typing import Any, Literal, NoReturn, cast
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 
 from ._errors import PH_SUCCESS, check, error_string
 from ._native import ffi, lib
 from .exceptions import InvalidArgumentError
+
+if TYPE_CHECKING:
+    from ._native import ph_context_t_ptr
 
 WHashMode = Literal["fast", "full"]
 AlphaMode = Literal["grey", "white", "black", "ignore"]
@@ -88,12 +91,12 @@ class Config:
         finally:
             lib.ph_free(ctx)
 
-    def replace(self, **changes: Any) -> Config:
+    def replace(self, **changes: Any) -> Config:  # noqa: ANN401 -- checked as a new Config
         """Return a copy with the given fields changed, checked like a new Config."""
         return dataclasses.replace(self, **changes)
 
 
-def apply_config(cfg: Config, ctx: Any) -> None:
+def apply_config(cfg: Config, ctx: ph_context_t_ptr) -> None:
     """Set every field of ``cfg`` on a ``ph_context_t``."""
     steps: list[tuple[str, int]] = [
         ("gamma", lib.ph_context_set_gamma(ctx, cfg.gamma)),
@@ -150,7 +153,7 @@ def apply_config(cfg: Config, ctx: Any) -> None:
             )
 
 
-def new_context() -> Any:
+def new_context() -> ph_context_t_ptr:
     out = ffi.new("ph_context_t **")
     check(lib.ph_create(out), context="creating a context")
     return out[0]

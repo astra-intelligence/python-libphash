@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast, overload
+from typing import TYPE_CHECKING, Literal, NoReturn, cast, overload
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
 from ._config import Config, apply_config, new_context
@@ -28,6 +28,8 @@ from ._sources import (
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+
+    from ._native import ph_context_t_ptr
 
 #: Names of the algorithms that produce a 64-bit ``int``.
 Uint64Name = Literal["ahash", "dhash", "phash", "whash"]
@@ -73,7 +75,7 @@ class ImageContext:
         self._lock = threading.Lock()
         self._config = _config_or_default(config)
         ptr = new_context()
-        self._ptr: Any = ffi.gc(ptr, lib.ph_free)
+        self._ptr: ph_context_t_ptr | None = ffi.gc(ptr, lib.ph_free)
         apply_config(self._config, self._ptr)
 
     # --- Lifecycle -------------------------------------------------------------------
@@ -114,7 +116,7 @@ class ImageContext:
     def __deepcopy__(self, memo: object) -> NoReturn:
         self.__copy__()
 
-    def _live(self) -> Any:
+    def _live(self) -> ph_context_t_ptr:
         ptr = self._ptr
         if ptr is None:
             raise ValueError("operation on a closed ImageContext")
@@ -132,7 +134,7 @@ class ImageContext:
             return bool(lib.ph_is_loaded(self._live()))
 
     def _dimensions(self) -> tuple[int, int, int]:
-        out = ffi.new("int[3]")
+        out = ffi.new("int[]", 3)
         with self._lock:
             lib.ph_context_get_dimensions(self._live(), out, out + 1, out + 2)
         return int(out[0]), int(out[1]), int(out[2])
@@ -262,9 +264,9 @@ class ImageContext:
         del px
 
     @staticmethod
-    def _last_message(ptr: Any) -> str:
+    def _last_message(ptr: ph_context_t_ptr) -> str:
         msg = lib.ph_get_last_error_message(ptr)
-        if msg == ffi.NULL:
+        if not msg:
             return ""
         return str(ffi.string(msg).decode("utf-8", "replace"))
 

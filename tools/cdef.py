@@ -120,6 +120,19 @@ def header_cdef(header: Path) -> str:
     return "\n".join(out) + "\n"
 
 
+#: The batch callbacks: implemented in Python with @ffi.def_extern, so no executable
+#: closure is created at run time (which ffi.callback would need).
+BATCH_CALLBACKS = """
+extern "Python" int _libphash_should_continue(void *user_data);
+extern "Python" void _libphash_on_progress(size_t done, size_t total, void *user_data);
+"""
+
+
+def binding_cdef(header: Path) -> str:
+    """Return the cdef of ``libphash._native``: the header and the batch callbacks."""
+    return header_cdef(header) + BATCH_CALLBACKS
+
+
 def header_functions(header: Path) -> set[str]:
     """Names of the functions ``header`` declares."""
     h = _Header()

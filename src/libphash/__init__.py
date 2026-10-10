@@ -12,7 +12,7 @@ reuses its buffers across images; :func:`hash_files` hashes many files on a thre
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 from ._algorithms import Algorithm, AlgorithmLike, DigestKind, to_algorithm
 from ._batch import BatchResult, ProgressCallback, hash_buffers, hash_files
@@ -68,6 +68,9 @@ from .exceptions import (
     RequiresColorError,
     UnsupportedFormatError,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = [
     "PH_DIGEST_MAX_BYTES",
@@ -181,7 +184,7 @@ def can_decode(fmt: Literal["jpeg", "png", "webp"]) -> bool:
 
     JPEG and PNG decode without one too (through stb_image); WebP does not.
     """
-    checks: dict[str, Any] = {
+    checks: dict[str, Callable[[], int]] = {
         "jpeg": lib.ph_can_use_jpeg,
         "png": lib.ph_can_use_png,
         "webp": lib.ph_can_use_webp,

@@ -8,9 +8,9 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    Any,
     Generic,
     TypeVar,
+    cast,
 )
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
@@ -22,6 +22,8 @@ from .exceptions import InvalidArgumentError, PhashError
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+
+    from ._native import ph_batch_buffer_item_t, ph_batch_item_t, void_ptr
 
 #: Called as ``progress(done, total)`` after each finished item; returning ``False``
 #: stops the batch (items not yet started get BatchCancelledError).
@@ -179,7 +181,10 @@ def _algorithms(algorithms: _Algorithms) -> tuple[list[Algorithm], int]:
 
 
 def _result(
-    source: _S, item: Any, algos: list[Algorithm], path: StrPath | None = None
+    source: _S,
+    item: ph_batch_item_t | ph_batch_buffer_item_t,
+    algos: list[Algorithm],
+    path: StrPath | None = None,
 ) -> BatchResult[_S]:
     status = int(item.status)
     if status != PH_SUCCESS:
@@ -213,29 +218,30 @@ class _Run:
         self.interrupted = False
         self.wakeup: socket.socket | None = None
         self.previous_wakeup = -1
-        self.template: Any = None
-        self.handle: Any = None
-        self.options: Any = None
-
-    def __enter__(self) -> Self:
-        self.template = new_context()
-        apply_config(self.config, self.template)
         self.options = ffi.new("ph_batch_options_t *")
         check(lib.ph_batch_options_init(self.options))
         self.handle = ffi.new_handle(self)
-        self.options.config = self.template
         self.options.threads = self.threads
         self.options.should_continue = lib._libphash_should_continue
         self.options.user_data = self.handle
         if self.progress is not None:
             self.options.on_progress = lib._libphash_on_progress
+
+    def __enter__(self) -> Self:
+        template = new_context()
+        try:
+            apply_config(self.config, template)
+        except BaseException:
+            lib.ph_free(template)
+            raise
+        self.options.config = template
         self._watch_sigint()
         return self
 
     def __exit__(self, *exc_info: object) -> None:
         self._unwatch_sigint()
-        lib.ph_free(self.template)
-        self.template = None
+        lib.ph_free(self.options.config)
+        self.options.config = ffi.NULL
 
     def finish(self, code: int) -> None:
         """Check the batch's return code, re-raising a callback's exception."""
@@ -314,18 +320,18 @@ def _check_threads(threads: object) -> int:
 
 
 @ffi.def_extern(name="_libphash_should_continue")
-def should_continue_callback(user_data: Any) -> int:
+def should_continue_callback(user_data: void_ptr) -> int:
     try:
-        run: _Run = ffi.from_handle(user_data)
+        run = cast("_Run", ffi.from_handle(user_data))
         return 1 if run.should_continue() else 0
     except BaseException:  # noqa: BLE001 -- a callback must not raise into C
         return 0
 
 
 @ffi.def_extern(name="_libphash_on_progress")
-def on_progress_callback(_done: int, _total: int, user_data: Any) -> None:
+def on_progress_callback(_done: int, _total: int, user_data: void_ptr) -> None:
     try:
-        run: _Run = ffi.from_handle(user_data)
+        run = cast("_Run", ffi.from_handle(user_data))
         run.on_progress()
     except BaseException:  # noqa: BLE001, S110 -- a callback must not raise into C
         pass

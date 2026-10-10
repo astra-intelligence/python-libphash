@@ -15,6 +15,10 @@ from ._native import ffi
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from typing_extensions import Buffer
+
+    from ._native import char_ptr, uint8_t_ptr
+
 #: A file system path, as ``open()`` takes it.
 StrPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 #: Order of the color channels in an array of pixels: ``"bgr"`` is OpenCV's.
@@ -101,12 +105,12 @@ class Pixels:
     ``keepalive`` holds whatever must stay alive during the call.
     """
 
-    pointer: Any
+    pointer: char_ptr | uint8_t_ptr
     width: int
     height: int
     channels: int
     stride: int
-    keepalive: Any
+    keepalive: object
 
 
 def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> Pixels:
@@ -123,7 +127,7 @@ def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> P
         return _from_array_interface(obj, iface, channel_order)
     try:
         # Any object with the buffer protocol and a shape, beyond what PixelArray names.
-        view = obj if isinstance(obj, memoryview) else memoryview(cast("Any", obj))
+        view = obj if isinstance(obj, memoryview) else memoryview(cast("Buffer", obj))
     except TypeError:
         raise TypeError(
             "expected an array of pixels (numpy, memoryview with a shape), "
@@ -157,19 +161,21 @@ def _from_array_interface(
     row = strides[0]
     pixel = strides[1]
     channel = strides[2] if len(strides) == 3 else 1
-    data = iface.get("data")
+    data: object = iface.get("data")
+    # numpy states the address as (pointer, read_only); other exporters may not.
+    address = cast("tuple[object, ...]", data)[0] if isinstance(data, tuple) else None
     zero_copy = (
         channel_order == "rgb"
         and pixel == channels
         and channel == 1
         and row >= width * channels
     )
-    if zero_copy and isinstance(data, tuple):
-        pointer = ffi.cast("const uint8_t *", data[0])
+    if zero_copy and isinstance(address, int):
+        pointer = ffi.cast("const uint8_t *", address)
         return Pixels(pointer, width, height, channels, row, obj)
     # Any other layout: one C-ordered copy through the buffer protocol.
     try:
-        packed = memoryview(cast("Any", obj)).tobytes()
+        packed = memoryview(cast("Buffer", obj)).tobytes()
     except TypeError:
         raise TypeError(
             "the array does not expose its data through the buffer protocol"

@@ -46,7 +46,7 @@ def test_defaults_are_the_c_library_defaults(photo: Path) -> None:
 def test_default_gray_weights_match_the_getter() -> None:
     out = ffi.new("ph_context_t **")
     assert lib.ph_create(out) == 0
-    rgb = ffi.new("int[3]")
+    rgb = ffi.new("int[]", 3)
     assert lib.ph_context_get_gray_weights(out[0], rgb, rgb + 1, rgb + 2) == 0
     lib.ph_free(out[0])
     assert tuple(rgb) == Config().gray_weights

@@ -81,8 +81,6 @@ select = [
 ignore = [
     # A class docstring documents its constructor and dunder methods.
     "D105", "D107",
-    # A ph_context_t *, ph_digest_t * or other cffi pointer is typed Any by cffi.
-    "ANN401",
     # Array ranks, channel counts and expected test values read better as literals.
     "PLR2004",
 ]
@@ -102,6 +100,8 @@ convention = "pep257"
 "tests/**" = ["D100", "D103", "S101", "S301", "S307", "S311"]
 # The build runs CMake from PATH or the build environment, with arguments it builds.
 "tools/native.py" = ["S603"]
+# The stub's classes and parameters carry the names of the C types and of the header.
+"src/libphash/_native.pyi" = ["N801", "A002"]
 
 [tool.typos.files]
 extend-exclude = ["native", "tmp", "build", "dist"]

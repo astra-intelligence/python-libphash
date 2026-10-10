@@ -23,19 +23,20 @@ uv sync --all-extras --inexact            # builds the extension in editable mod
 uv run pytest                             # tests in tests/, fixtures from native/libphash/tests/data
 uv run ruff check . && uv run ruff format --check .
 uv run mypy && uv run basedpyright                         # both strict, over src/, tests/, tools/
-uv run python -m mypy.stubtest libphash._native            # the stub of the generated module
+uv run python tools/stub.py --check                        # _native.pyi matches the built module
 uv run typos
 uv build                                  # sdist + wheel into dist/
 ```
 
 `uv sync` without `--inexact` removes packages that are not in the lock file from `.venv`.
-After a change to the C side or to `tools/`, rebuild with `uv sync --all-extras --inexact --reinstall-package python-libphash`.
+After a change to the C side or to `tools/`, rebuild with `uv sync --all-extras --inexact --reinstall-package python-libphash`, then regenerate the stub with `uv run python tools/stub.py`.
 
 How the extension is built:
 
 - **`tools/native.py`** — builds libphash with its own CMake project (static, PIC, `PHASH_STRICT_DEPS=ON`, tests off) into `build/libphash-<platform>/` and reads the installed `libphash.pc` into link arguments. The binding never repeats libphash's build flags: decoder selection, the x86-64-v2 baseline, `-ffp-contract=off` and hidden visibility come from libphash's CMake. Only `PyInit__native` is exported from the extension.
 - **`tools/cdef.py`** — generates the CFFI `cdef` from `native/libphash/include/libphash.h`: every function and constant of the header, nothing written by hand.
 - **`tools/ffi.py`** — the CFFI builder (`cffi_modules` in `setup.py`).
+- **`tools/stub.py`** — generates `src/libphash/_native.pyi` from the built module through cffi's introspection: a class per pointer and array type (`uint64_t_ptr`, `ph_digest_t_array`), struct fields, every `lib` function with the header's parameter names, `ffi.new`/`cast`/`from_buffer` overloaded on literal cdecls. Parameter types follow cffi's rules (a `T *` takes exactly `T *`/`T[]` or `ffi.NULL`; character pointers also take `bytes`). The classes exist only for type checkers: import them under `TYPE_CHECKING`. A test fails when the committed stub differs from the generated one.
 - **`setup.py`** — `build_ext` runs the CMake build before compiling the extension, so an sdist is made without a compiler.
 - **`MANIFEST.in`** — the sdist carries only what libphash's CMake build reads (`CMakeLists.txt`, `cmake/`, `include/`, `src/`, `vendor/`, licenses), enough to build offline.
 
@@ -53,7 +54,7 @@ The public API is what `src/libphash/__init__.py` exports; every other module is
 - **`_batch.py`** — `hash_files()` / `hash_buffers()` over `ph_hash_*_ex`; callbacks are `extern "Python"` (`@ffi.def_extern`); a callback's exception is re-raised after the call; Ctrl+C reaches `should_continue` through `signal.set_wakeup_fd`.
 - **`_sources.py`** — paths (`os.fsencode`; on Windows files are read in Python, because libphash opens paths with the ANSI code page), arrays (zero-copy when rows are the only gaps), Pillow modes.
 - **`exceptions.py`** — the `PhashError` tree, nothing else. **`_errors.py`** — `make_error()` maps a `ph_error_t` to it. `ph_get_last_error_message()` is attached only to load errors: libphash writes it only on loads, so after a failed hash it holds a previous load's detail.
-- **`_native.pyi`** — stub for the generated `ffi`/`lib`; **`py.typed`** marks the package as typed.
+- **`_native.pyi`** — generated stub for `ffi`/`lib` (see `tools/stub.py`); **`py.typed`** marks the package as typed.
 
 Typing: the package passes mypy and basedpyright in strict mode, and every type a caller needs to annotate their own code (`Source`, `StrPath`, `PixelArray`, `AlgorithmLike`, the `Config` literals, the protocols) is exported from `libphash`. Public signatures use protocols, not `Any`. A runtime check of an argument for untyped callers takes it as `object`, so neither checker calls the check unnecessary.
 Lint: ruff with a broad rule set and pep257 docstrings (`pyproject.toml`); every exception to a rule is a per-file ignore with a comment or a `# noqa: CODE -- reason`, never a bare `noqa`.

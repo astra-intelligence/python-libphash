@@ -92,7 +92,7 @@ def _rebuild_io(  # noqa: PLR0913 -- one argument per pickled field
     code: int,
     detail: str,
     err: int | None,
-    filename: Any,
+    filename: object,
 ) -> ImageIOError:
     exc = cls.__new__(cls)
     ImageIOError.__init__(exc, message, code=code, detail=detail)
