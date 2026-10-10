@@ -36,8 +36,7 @@ class Digest:
 
     @classmethod
     def from_c_struct(cls, c_digest: Any) -> Digest:
-        # Pyright теперь знает, что у c_digest могут быть поля,
-        # так как мы описали это в .pyi как Any (динамический указатель)
+        # c_digest is a cdata ph_digest_t, typed as Any in _native.pyi.
         size = int(c_digest.size)
         raw_buffer = ffi.buffer(c_digest.data, size)
         return cls(bytes(raw_buffer), size)

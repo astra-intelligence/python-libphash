@@ -38,7 +38,7 @@ uv add python-libphash
 
 ### Install from source
 ```bash
-git clone --recursive https://github.com/yourusername/python-libphash.git
+git clone --recursive https://github.com/gudoshnikovn/python-libphash.git
 cd python-libphash
 pip install .
 # or using uv

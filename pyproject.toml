@@ -9,7 +9,7 @@ description = "High-performance perceptual hashing library (CFFI bindings)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
-authors = [{ name = "gudoshnikovn", email = "gudoshnikov-na@yandex.ru" }]
+authors = [{ name = "gudoshnikovn", email = "gudoshnikovna@gmail.com" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: C",

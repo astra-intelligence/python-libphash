@@ -16,6 +16,7 @@ parts/
 sdist/
 var/
 wheels/
+wheelhouse/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -52,11 +53,16 @@ _native.*.pyd
 *.swp
 *.swo
 
-# --- Testing ---
+# --- Testing & linters ---
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 tests/output_*.jpeg
+
+# --- macOS ---
+.DS_Store
 
 # --- Local working notes, never committed ---
 tmp/

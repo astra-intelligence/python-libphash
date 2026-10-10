@@ -84,7 +84,6 @@ class ImageContext:
         """
         lib.ph_context_set_load_grayscale(self._ptr, 1 if enable else 0)
 
-    # Внутренние хелперы теперь типизированы через Callable
     def _uint64_prop(self, func: Callable[[Any, Any], int]) -> int:
         out = ffi.new("uint64_t *")
         check_error(func(self._ptr, out))
