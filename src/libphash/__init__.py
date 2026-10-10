@@ -6,6 +6,7 @@ from .exceptions import (
     DecodeError,
     InvalidArgumentError,
 )
+from ._version import __version__ as __version__
 from .ph_types import Digest, HashMethod
 from .context import ImageContext
 from .utils import (
@@ -15,8 +16,6 @@ from .utils import (
     ph_can_use_libjpeg,
     ph_can_use_libpng,
 )
-
-__version__ = "1.4.0"
 
 __all__ = [
     "PhashError",

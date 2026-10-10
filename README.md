@@ -1,6 +1,6 @@
 # python-libphash
 
-High-performance Python bindings for [libphash](https://github.com/gudoshnikovn/libphash), a C library(v1.10.4) for perceptual image hashing.
+High-performance Python bindings for [libphash](https://github.com/gudoshnikovn/libphash), a C library for perceptual image hashing.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -44,6 +44,21 @@ pip install .
 # or using uv
 uv pip install .
 ```
+
+## Versioning
+
+The version has four numbers, `X.Y.Z.N`:
+
+*   `X.Y.Z` is the version of the bundled libphash: `python-libphash 2.0.1.0` carries libphash 2.0.1.
+*   `N` is the revision of the binding on top of it. The first release for a libphash version is `.0`, and the zero is always written out; fixes and additions to the Python side alone are `2.0.1.1`, `2.0.1.2`, …
+
+Hash values depend on the libphash version and on the context settings, so hashes stored for later comparison are comparable only when both were computed with the same `X.Y.Z` and the same settings. To pin the C library while still receiving binding fixes, pin the first three numbers:
+
+```bash
+pip install "python-libphash==2.0.1.*"
+```
+
+The 1.x releases were numbered independently of libphash (1.4.1 bundles libphash 1.10.4).
 
 ## Quick Start
 
