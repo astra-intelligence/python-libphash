@@ -57,3 +57,6 @@ _native.*.pyd
 .coverage
 htmlcov/
 tests/output_*.jpeg
+
+# --- Local working notes, never committed ---
+tmp/
