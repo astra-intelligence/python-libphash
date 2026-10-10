@@ -1,5 +1,12 @@
 [build-system]
-requires = ["setuptools>=61.0", "cffi>=1.15.0"]
+requires = [
+  "setuptools>=61.0",
+  "cffi>=1.15.0",
+  "cmake>=3.21",
+  # Ninja under MSVC needs a developer command prompt; CMake's default
+  # Visual Studio generator does not.
+  "ninja; sys_platform != 'win32'",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -32,17 +39,16 @@ where = ["src"]
 [tool.cibuildwheel]
 build-verbosity = 1
 skip = "cp36* cp37* cp38* pp*"
-before-build = "ls -R {project}/native/libphash"
 
+# CMake and Ninja come from build-system.requires. nasm gives libjpeg-turbo its x86
+# SIMD; without it the decoder builds without SIMD, slower but with the same hashes.
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
-# Install build dependencies for vendor libraries
-before-all = "if command -v yum >/dev/null; then yum install -y cmake nasm zlib-devel; elif command -v dnf >/dev/null; then dnf install -y cmake nasm zlib-devel; elif command -v apk >/dev/null; then apk add cmake nasm zlib-dev; fi"
+before-all = "if command -v dnf >/dev/null; then dnf install -y nasm; elif command -v yum >/dev/null; then yum install -y nasm; elif command -v apk >/dev/null; then apk add nasm; fi"
 
 [tool.cibuildwheel.macos]
-# macOS runners usually have cmake pre-installed, but we ensure it
-before-all = "brew install cmake nasm || true"
+before-all = "brew install nasm || true"
 
 [tool.mypy]
 strict = true

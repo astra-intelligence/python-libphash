@@ -51,19 +51,23 @@ class ImageContext:
         check_error(lib.ph_load_from_memory(self._ptr, data, len(data)))
 
     def set_gamma(self, gamma: float) -> None:
-        lib.ph_context_set_gamma(self._ptr, float(gamma))
+        check_error(lib.ph_context_set_gamma(self._ptr, float(gamma)))
 
     def set_gray_weights(self, r: int, g: int, b: int) -> None:
-        lib.ph_context_set_gray_weights(self._ptr, r, g, b)
+        check_error(lib.ph_context_set_gray_weights(self._ptr, r, g, b))
 
     def set_phash_params(self, dct_size: int, reduction_size: int) -> None:
-        lib.ph_context_set_phash_params(self._ptr, dct_size, reduction_size)
+        check_error(lib.ph_context_set_phash_params(self._ptr, dct_size, reduction_size))
 
-    def set_radial_params(self, projections: int, samples: int) -> None:
-        lib.ph_context_set_radial_params(self._ptr, projections, samples)
+    def set_radial_params(
+        self, projections: int, samples: int, sigma: float = 3.5
+    ) -> None:
+        check_error(
+            lib.ph_context_set_radial_params(self._ptr, projections, samples, float(sigma))
+        )
 
     def set_block_params(self, block_size: int) -> None:
-        lib.ph_context_set_block_params(self._ptr, block_size)
+        check_error(lib.ph_context_set_block_params(self._ptr, block_size))
 
     def set_whash_mode(self, mode: str) -> None:
         """
@@ -71,9 +75,9 @@ class ImageContext:
         :param mode: "fast" (default 15x speedup) or "full" (ImageHash accurate).
         """
         if mode == "fast":
-            lib.ph_context_set_whash_mode(self._ptr, lib.PH_WHASH_FAST)
+            check_error(lib.ph_context_set_whash_mode(self._ptr, lib.PH_WHASH_FAST))
         elif mode == "full":
-            lib.ph_context_set_whash_mode(self._ptr, lib.PH_WHASH_FULL)
+            check_error(lib.ph_context_set_whash_mode(self._ptr, lib.PH_WHASH_FULL))
         else:
             raise ValueError(f"Unknown whash mode: {mode}")
 
@@ -82,7 +86,7 @@ class ImageContext:
         Controls whether images are loaded as grayscale by default.
         Enabling this provides significant speedup for grayscale-only hashes.
         """
-        lib.ph_context_set_load_grayscale(self._ptr, 1 if enable else 0)
+        check_error(lib.ph_context_set_load_grayscale(self._ptr, 1 if enable else 0))
 
     def _uint64_prop(self, func: Callable[[Any, Any], int]) -> int:
         out = ffi.new("uint64_t *")
@@ -111,12 +115,12 @@ class ImageContext:
         return self._uint64_prop(lib.ph_compute_whash)
 
     @property
-    def mhash(self) -> int:
-        return self._uint64_prop(lib.ph_compute_mhash)
+    def mhash(self) -> Digest:
+        return self._digest_prop(lib.ph_compute_mhash)
 
     @property
-    def color_hash(self) -> int:
-        return self._uint64_prop(lib.ph_compute_color_hash)
+    def color_hash(self) -> Digest:
+        return self._digest_prop(lib.ph_compute_color_hash)
 
     @property
     def bmh(self) -> Digest:

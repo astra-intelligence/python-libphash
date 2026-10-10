@@ -14,8 +14,8 @@ def test_color_moments_hash_digest(sample_jpeg_bytes: bytes):
     """Verify Color Moment Hash digest properties."""
     with ImageContext(bytes_data=sample_jpeg_bytes) as ctx:
         digest = ctx.color_moments_hash
-        assert digest.size == 9
-        assert len(digest.data) == 9
+        assert digest.size == 18
+        assert len(digest.data) == 18
 
 
 def test_radial_hash_digest(sample_jpeg_bytes: bytes):

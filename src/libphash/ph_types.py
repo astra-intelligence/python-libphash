@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, final
 from ._native import ffi, lib
 
-PH_DIGEST_MAX_BYTES: int = 64
+PH_DIGEST_MAX_BYTES: int = lib.PH_DIGEST_MAX_BYTES
 
 
 class HashMethod(Enum):

@@ -30,9 +30,9 @@ def compare_images(
 
 def ph_can_use_libjpeg() -> bool:
     """Check if libjpeg-turbo is available for fast JPEG decoding."""
-    return bool(lib.ph_can_use_libjpeg())
+    return bool(lib.ph_can_use_jpeg())
 
 
 def ph_can_use_libpng() -> bool:
     """Check if libpng is available for fast PNG decoding."""
-    return bool(lib.ph_can_use_libpng())
+    return bool(lib.ph_can_use_png())

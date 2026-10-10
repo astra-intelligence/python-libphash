@@ -1,13 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ._native import lib
-else:
-    try:
-        from ._native import lib
-    except ImportError:
-        lib = None
+from ._native import ffi, lib
 
 
 class PhashError(Exception):
@@ -19,7 +11,7 @@ class AllocationError(PhashError):
 
 
 class DecodeError(PhashError):
-    """Raised when image decoding fails (stb_image error)."""
+    """Raised when the image data is in no supported format, or is corrupt."""
 
 
 class InvalidArgumentError(PhashError):
@@ -35,40 +27,18 @@ class EmptyImageError(PhashError):
 
 
 def check_error(err_code: int) -> None:
-    """Map C return codes to Python exceptions."""
-    if err_code == 0:
+    """Map a ph_error_t return code to a Python exception."""
+    if err_code == lib.PH_SUCCESS:
         return
 
     errors: dict[int, type[PhashError]] = {
-        -1: AllocationError,
-        -2: DecodeError,
-        -3: InvalidArgumentError,
-        -4: NotImplementedError,
-        -5: EmptyImageError,
+        lib.PH_ERR_ALLOCATION_FAILED: AllocationError,
+        lib.PH_ERR_INVALID_ARGUMENT: InvalidArgumentError,
+        lib.PH_ERR_EMPTY_IMAGE: EmptyImageError,
+        lib.PH_ERR_UNSUPPORTED_FORMAT: DecodeError,
+        lib.PH_ERR_CORRUPT_DATA: DecodeError,
+        lib.PH_ERR_DECODER_UNAVAILABLE: DecodeError,
     }
-
     exc_class = errors.get(err_code, PhashError)
-
-    # Use C engine to get human-readable error string if available
-    msg = None
-    if lib is not None:
-        try:
-            c_str = lib.ph_get_error_string(err_code)
-            from ._native import ffi
-
-            msg = ffi.string(c_str).decode()
-        except Exception:
-            pass
-
-    if not msg:
-        # Fallback messages
-        fallback_msgs = {
-            -1: "Memory allocation failed in libphash",
-            -2: "Failed to decode image",
-            -3: "Invalid argument provided to libphash",
-            -4: "Feature not implemented",
-            -5: "Image is empty or invalid",
-        }
-        msg = fallback_msgs.get(err_code, f"Unknown error code: {err_code}")
-
+    msg = ffi.string(lib.ph_get_error_string(err_code)).decode()
     raise exc_class(msg)

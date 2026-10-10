@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`python-libphash` is the Python binding for [libphash](https://github.com/gudoshnikovn/libphash), a perceptual image hashing library in C. The binding is built with CFFI in API mode: the C sources of libphash are compiled into the extension module `libphash._native`, so a wheel carries the whole library and needs no system libphash.
+`python-libphash` is the Python binding for [libphash](https://github.com/gudoshnikovn/libphash), a perceptual image hashing library in C. The binding is built with CFFI in API mode: libphash and its vendored decoders are linked statically into the extension module `libphash._native`, so a wheel carries the whole library and needs no system libphash.
 
 - **`native/libphash`** — libphash as a git submodule. It always points at a release tag of libphash (`vX.Y.Z`), never at an intermediate commit.
 - **Local libphash sources:** `/Users/gudoshnikov_na/Programming/C/libphash`. Read the header, `CHANGELOG.md`, `docs/` and the C code there; do not download libphash. That repository is current C development and may be ahead of the submodule — compare by tag (`git -C native/libphash describe --tags`).
@@ -19,17 +19,27 @@ The project is developed with [uv](https://docs.astral.sh/uv/) (`.python-version
 
 ```bash
 git submodule update --init --recursive   # libphash and its vendored decoders
-uv sync --extra dev                       # builds the extension in editable mode
+uv sync --all-extras --inexact            # builds the extension in editable mode
 uv run pytest                             # tests in tests/, fixtures from native/libphash/tests/data
 uv run ruff check . && uv run mypy src
 uv build                                  # sdist + wheel into dist/
 ```
 
-The extension is built by `src/libphash/_build.py` (`cffi_modules` in `setup.py`): `ffibuilder.cdef(...)` declares the C API visible to Python, `set_source(...)` compiles the libphash sources and links the vendored decoders it builds with CMake.
+`uv sync` without `--inexact` removes packages that are not in the lock file from `.venv`.
+After a change to the C side or to `tools/`, rebuild with `uv sync --all-extras --inexact --reinstall-package python-libphash`.
+
+How the extension is built:
+
+- **`tools/native.py`** — builds libphash with its own CMake project (static, PIC, `PHASH_STRICT_DEPS=ON`, tests off) into `build/libphash-<platform>/` and reads the installed `libphash.pc` into link arguments. The binding never repeats libphash's build flags: decoder selection, the x86-64-v2 baseline, `-ffp-contract=off` and hidden visibility come from libphash's CMake. Only `PyInit__native` is exported from the extension.
+- **`tools/cdef.py`** — generates the CFFI `cdef` from `native/libphash/include/libphash.h`: every function and constant of the header, nothing written by hand.
+- **`tools/ffi.py`** — the CFFI builder (`cffi_modules` in `setup.py`).
+- **`setup.py`** — `build_ext` runs the CMake build before compiling the extension, so an sdist is made without a compiler.
+- **`MANIFEST.in`** — the sdist carries only what libphash's CMake build reads (`CMakeLists.txt`, `cmake/`, `include/`, `src/`, `vendor/`, licenses), enough to build offline.
+
+On macOS, `ARCHFLAGS="-arch x86_64"` cross-builds an x86-64 wheel (as cibuildwheel does). Other platforms are verified in CI, never under emulation.
 
 ## Architecture
 
-- **`src/libphash/_build.py`** — CFFI build script: the `cdef`, the libphash sources and the decoder build.
 - **`src/libphash/_native.pyi`** — type stub for the generated `ffi`/`lib`.
 - **`src/libphash/context.py`** — `ImageContext`: owns one `ph_context_t*`, loads an image (path or bytes), exposes settings and one property per hash.
 - **`src/libphash/ph_types.py`** — `Digest` (wrapper over `ph_digest_t`) and `HashMethod`.

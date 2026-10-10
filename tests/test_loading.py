@@ -1,5 +1,5 @@
 import pytest
-from libphash import ImageContext, DecodeError
+from libphash import ImageContext, DecodeError, PhashError
 
 
 def test_context_lifecycle():
@@ -19,9 +19,10 @@ def test_load_from_file(image_path: str):
 
 
 def test_load_from_file_not_found():
-    """Verify DecodeError is raised for missing files."""
-    with pytest.raises(DecodeError):
+    """A missing file is an I/O error, not a decoding error."""
+    with pytest.raises(PhashError) as exc_info:
         ImageContext(path="non_existent.jpg")
+    assert not isinstance(exc_info.value, DecodeError)
 
 
 def test_load_from_memory(sample_jpeg_bytes: bytes):

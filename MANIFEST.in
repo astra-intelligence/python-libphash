@@ -1,4 +1,16 @@
 include README.md
 include LICENSE
-recursive-include native/libphash *
-recursive-exclude native/libphash/.git *
+include tools/cdef.py tools/ffi.py tools/native.py
+
+# libphash: what its CMake build reads with tests, fuzzers and the site tooling off,
+# and its licenses. The vendored decoders are taken whole: their own CMake projects
+# decide which of their files they need.
+include native/libphash/CMakeLists.txt
+include native/libphash/libphash.pc.in
+include native/libphash/LICENSE
+include native/libphash/THIRD-PARTY-NOTICES.md
+graft native/libphash/cmake
+graft native/libphash/include
+graft native/libphash/src
+graft native/libphash/vendor
+global-exclude .git .gitattributes .DS_Store
