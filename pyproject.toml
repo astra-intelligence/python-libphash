@@ -27,7 +27,7 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
+dev = ["pytest", "hypothesis", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
 
 [tool.setuptools]
 zip-safe = false

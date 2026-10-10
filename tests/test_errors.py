@@ -8,6 +8,8 @@ import pytest
 from conftest import data
 
 import libphash as ph
+from libphash._errors import make_error
+from libphash._native import ffi, lib
 
 
 def test_missing_file_is_file_not_found(tmp_path: Path) -> None:
@@ -112,3 +114,25 @@ def test_builtin_bases() -> None:
     assert issubclass(ph.AllocationError, MemoryError)
     assert issubclass(ph.DigestKindError, TypeError)
     assert issubclass(ph.ImageIOError, OSError)
+
+
+def test_every_error_code_has_its_own_exception() -> None:
+    codes = {
+        name: int(getattr(lib, name))
+        for name in dir(lib)
+        if name.startswith("PH_ERR_") and name != "PH_ERR_FORCE_INT32_"
+    }
+    classes: set[type[ph.PhashError]] = set()
+    for name, code in codes.items():
+        err = make_error(code)
+        assert type(err) is not ph.PhashError, name
+        assert (err.code, err.code_name) == (code, name)
+        assert str(err) == ffi.string(lib.ph_get_error_string(code)).decode()
+        classes.add(type(err))
+    assert len(classes) == len(codes)
+
+
+def test_an_unknown_code_is_the_base_class() -> None:
+    err = make_error(-99)
+    assert type(err) is ph.PhashError
+    assert (err.code, err.code_name) == (-99, "")

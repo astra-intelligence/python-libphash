@@ -42,3 +42,8 @@ def test_submodule_is_on_the_release_tag() -> None:
     except (OSError, subprocess.CalledProcessError):
         pytest.skip("native/libphash is not a git checkout on a tag")
     assert tag == f"v{c_version()}"
+
+
+def test_version_number_encodes_the_version() -> None:
+    major, minor, patch = (int(n) for n in c_version().split("."))
+    assert lib.ph_version_number() == major * 1_000_000 + minor * 1000 + patch
