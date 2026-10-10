@@ -21,12 +21,6 @@ wheelhouse/
 .installed.cfg
 *.egg
 MANIFEST
-# Benchmarks
-benchmarks/data/
-benchmarks/augmented/
-benchmarks/augmented_png/
-*.prof
-benchmark_*.txt
 
 # --- Virtual Environments ---
 .env

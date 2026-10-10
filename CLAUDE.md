@@ -58,7 +58,7 @@ The public API is what `src/libphash/__init__.py` exports; every other module is
 
 Typing: the package passes mypy and basedpyright in strict mode, and every type a caller needs to annotate their own code (`Source`, `StrPath`, `PixelArray`, `AlgorithmLike`, the `Config` literals, the protocols) is exported from `libphash`. Public signatures use protocols, not `Any`. A runtime check of an argument for untyped callers takes it as `object`, so neither checker calls the check unnecessary.
 Lint: ruff with a broad rule set and pep257 docstrings (`pyproject.toml`); every exception to a rule is a per-file ignore with a comment or a `# noqa: CODE -- reason`, never a bare `noqa`.
-- **`tests/`** — pytest suite (`test_cdef.py` fails when a header function is neither wrapped nor listed as deliberately unwrapped); **`benchmarks/`** — speed and quality comparison with ImageHash (datasets in `benchmarks/data/`, not tracked).
+- **`tests/`** — pytest suite (`test_cdef.py` fails when a header function is neither wrapped nor listed as deliberately unwrapped); **`benchmarks/`** — speed and quality against imagehash, OpenCV img_hash and pdqhash on the photo corpus of libphash's site (`python -m benchmarks`, results in `build/benchmarks/`; `benchmarks/README.md`).
 - **`.github/workflows/`** — CI; wheels are built with cibuildwheel (configuration in `pyproject.toml`).
 
 Code, comments, docstrings and tracked documentation are in English.
