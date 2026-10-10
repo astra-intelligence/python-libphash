@@ -34,7 +34,7 @@ def test_batch_matches_single_hashes(threads: int) -> None:
     ps = paths()
     results = ph.hash_files(ps, ["phash", "dhash"], threads=threads)
     assert [r.source for r in results] == ps
-    for p, r in zip(ps, results):
+    for p, r in zip(ps, results, strict=True):
         assert r.ok
         assert r.hashes == {
             ph.Algorithm.DHASH: ph.hash(p, "dhash"),

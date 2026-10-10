@@ -8,9 +8,12 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Protocol, Union, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, Union, cast, runtime_checkable
 
 from ._native import ffi
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 #: A file system path, as ``open()`` takes it.
 StrPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
@@ -49,7 +52,7 @@ class PILImage(Protocol):
 
 
 #: Decoded 8-bit pixels of shape (h, w) or (h, w, 1|3|4): a numpy array, a memoryview.
-PixelArray = Union[SupportsArrayInterface, memoryview]
+PixelArray = SupportsArrayInterface | memoryview
 
 #: Everything :func:`libphash.hash` and :meth:`ImageContext.load` accept: a path,
 #: encoded bytes, a binary file object, an array of pixels or a Pillow image. ``bytes``

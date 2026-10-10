@@ -4,16 +4,13 @@ import os
 import signal
 import socket
 import threading
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
-    Iterable,
-    Optional,
     TypeVar,
-    Union,
 )
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
@@ -28,11 +25,11 @@ if TYPE_CHECKING:
 
 #: Called as ``progress(done, total)`` after each finished item; returning ``False``
 #: stops the batch (items not yet started get BatchCancelledError).
-ProgressCallback = Callable[[int, int], Optional[bool]]
+ProgressCallback = Callable[[int, int], bool | None]
 
 _S = TypeVar("_S")
 _P = TypeVar("_P", bound=StrPath)
-_Algorithms = Union[AlgorithmLike, Iterable[AlgorithmLike]]
+_Algorithms = AlgorithmLike | Iterable[AlgorithmLike]
 
 
 @dataclass(frozen=True)
@@ -78,7 +75,7 @@ def hash_files(
     algos, flags = _algorithms(algorithms)
     encoded = [ffi.new("char[]", encode_path(p)) for p in paths]
     items = ffi.new("ph_batch_item_t[]", len(paths))
-    for item, path in zip(items, encoded):
+    for item, path in zip(items, encoded, strict=True):
         item.path = path
     with _Run(len(paths), config, threads, progress) as run:
         code = lib.ph_hash_files_ex(items, len(paths), flags, run.options)
@@ -102,7 +99,7 @@ def hash_buffers(
     algos, flags = _algorithms(algorithms)
     views = [ffi.from_buffer("const uint8_t[]", b) for b in buffers]
     items = ffi.new("ph_batch_buffer_item_t[]", len(views))
-    for item, view in zip(items, views):
+    for item, view in zip(items, views, strict=True):
         item.buffer = view
         item.length = len(view)
     with _Run(len(views), config, threads, progress) as run:
@@ -157,7 +154,7 @@ def _files_via_buffers(
             threads=threads,
             progress=chunk_progress if progress else None,
         )
-        for i, (p, r) in enumerate(zip(part, part_results)):
+        for i, (p, r) in enumerate(zip(part, part_results, strict=True)):
             if i in failed:
                 results.append(BatchResult(p, None, failed[i]))
             else:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Callable, NoReturn, final
+from typing import TYPE_CHECKING, Any, NoReturn, final
 
 from ._algorithms import DigestKind
 from ._errors import PH_SUCCESS, make_error
 from ._native import ffi, lib
 from .exceptions import DigestKindError, InvalidArgumentError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 PH_DIGEST_MAX_BYTES: int = int(lib.PH_DIGEST_MAX_BYTES)
 _UINT64_MAX = (1 << 64) - 1

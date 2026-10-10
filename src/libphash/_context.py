@@ -317,7 +317,7 @@ class ImageContext:
                     code, context="computing " + ", ".join(map(str, uint64))
                 )
             # Slots follow ascending flag bits, which is ascending Algorithm value.
-            result.update(zip(uint64, (int(v) for v in out)))
+            result.update(zip(uint64, (int(v) for v in out), strict=True))
         for algo in algos:
             if algo not in result:
                 result[algo] = self.hash(algo)
