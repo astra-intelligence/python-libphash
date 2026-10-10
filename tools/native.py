@@ -10,6 +10,8 @@ Environment:
   LIBPHASH_BUILD_DIR   where the CMake build and install go
                        (default: build/libphash-<platform>)
   LIBPHASH_CMAKE_ARGS  extra arguments for the CMake configure step
+  CMAKE_GENERATOR      the CMake generator (default: Visual Studio for the running
+                       Python's architecture on Windows, Ninja elsewhere if installed)
   ARCHFLAGS            on macOS, the target architecture (``-arch x86_64``), as
                        cibuildwheel sets it
 """
@@ -54,6 +56,27 @@ def _cmake() -> str:
             "compiler; `pip install cmake` provides CMake."
         )
     return cmake
+
+
+# The Visual Studio platform of each Windows build of CPython.
+_VS_PLATFORMS = {"win-amd64": "x64", "win32": "Win32", "win-arm64": "ARM64"}
+
+
+def _generator() -> list[str]:
+    """Return the CMake generator arguments for a fresh build tree.
+
+    On Windows the generator is Visual Studio for the architecture of the running
+    Python: the extension is compiled by MSVC, which links only archives that MSVC
+    built, and with Ninja CMake would take whichever compiler comes first on PATH
+    (MinGW's gcc on GitHub's runners). Elsewhere Ninja is used when it is installed.
+    A generator chosen through ``CMAKE_GENERATOR`` is left to CMake.
+    """
+    if "CMAKE_GENERATOR" in os.environ:
+        return []
+    if sys.platform == "win32":
+        platform = _VS_PLATFORMS.get(sysconfig.get_platform())
+        return ["-A", platform] if platform else []
+    return ["-G", "Ninja"] if shutil.which("ninja") else []
 
 
 def _drop_stale_cache(cmake_dir: Path) -> None:
@@ -104,8 +127,8 @@ def build_libphash() -> Path:
         "-DPHASH_OPTIMIZE_NATIVE=OFF",
         f"-DCMAKE_INSTALL_PREFIX={prefix}",
     ]
-    if shutil.which("ninja") and not (cmake_dir / "CMakeCache.txt").exists():
-        configure += ["-G", "Ninja"]
+    if not (cmake_dir / "CMakeCache.txt").exists():
+        configure += _generator()
     archs = _osx_architectures()
     if archs:
         configure.append(f"-DCMAKE_OSX_ARCHITECTURES={archs}")
@@ -132,7 +155,9 @@ class LinkArguments(TypedDict):
 
 def _read_pc(pc: Path) -> dict[str, str]:
     """Return the fields of a pkg-config file (``Cflags``, ``Libs``, …), expanded."""
-    variables = {"pcfiledir": str(pc.parent)}
+    # Forward slashes: the fields are split with shell quoting, which would take the
+    # backslashes of a Windows path as escapes.
+    variables = {"pcfiledir": pc.parent.as_posix()}
     fields: dict[str, str] = {}
     for line in pc.read_text(encoding="utf-8").splitlines():
         expanded = re.sub(r"\$\{(\w+)\}", lambda m: variables[m.group(1)], line)
@@ -162,27 +187,34 @@ def link_arguments(prefix: Path) -> LinkArguments:
             name, _, value = flag[2:].partition("=")
             args["define_macros"].append((name, value or None))
 
-    lib_dirs: list[Path] = []
     libs = shlex.split(fields.get("Libs", "")) + shlex.split(
         fields.get("Libs.private", "")
     )
+    lib_dirs = [Path(f[2:]) for f in libs if f.startswith("-L")]
+    if sys.platform == "win32":
+        # libphash.pc names the archives as on Unix, while MSVC builds name some files
+        # otherwise (libwebpdecoder.lib, zlibstatic.lib). The install's lib directory
+        # holds exactly libphash and the archives it links, and the MSVC linker takes
+        # them in any order, so all of them are linked.
+        for d in lib_dirs:
+            args["extra_objects"] += sorted(str(f) for f in d.glob("*.lib"))
     for flag in libs:
-        if flag.startswith("-L"):
-            lib_dirs.append(Path(flag[2:]))
-        elif flag.startswith("-l"):
-            name = flag[2:]
-            # An archive of the install is linked by its path: with -lz the linker
-            # could pick the system zlib over the bundled zlib-ng.
-            candidates = [d / f"lib{name}.a" for d in lib_dirs] + [
-                d / f"{name}.lib" for d in lib_dirs
-            ]
-            archive = next((c for c in candidates if c.exists()), None)
-            if archive is not None:
-                args["extra_objects"].append(str(archive))
-            else:
-                args["libraries"].append(name)
-        else:
+        if flag.startswith("-L") or (flag.startswith("-l") and sys.platform == "win32"):
+            continue
+        if not flag.startswith("-l"):
             args["extra_link_args"].append(flag)
+            continue
+        name = flag[2:]
+        # An archive of the install is linked by its path: with -lz the linker could
+        # pick the system zlib over the bundled zlib-ng.
+        archive = next(
+            (d / f"lib{name}.a" for d in lib_dirs if (d / f"lib{name}.a").exists()),
+            None,
+        )
+        if archive is not None:
+            args["extra_objects"].append(str(archive))
+        else:
+            args["libraries"].append(name)
 
     # Only PyInit__native leaves the extension; the vendored decoders' symbols stay
     # inside it and cannot interpose on another copy of the same library.
