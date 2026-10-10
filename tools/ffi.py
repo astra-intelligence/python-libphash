@@ -16,6 +16,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cdef import header_cdef  # noqa: E402
 from native import HEADER  # noqa: E402
 
+# The batch callbacks: implemented in Python with @ffi.def_extern, so no executable
+# closure is created at run time (which ffi.callback would need).
+BATCH_CALLBACKS = """
+extern "Python" int _libphash_should_continue(void *user_data);
+extern "Python" void _libphash_on_progress(size_t done, size_t total, void *user_data);
+"""
+
 ffibuilder = FFI()
-ffibuilder.cdef(header_cdef(HEADER))
+ffibuilder.cdef(header_cdef(HEADER) + BATCH_CALLBACKS)
 ffibuilder.set_source("libphash._native", '#include "libphash.h"')

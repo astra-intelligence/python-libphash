@@ -2,7 +2,7 @@ import os
 import glob
 from pathlib import Path
 from PIL import Image, ImageEnhance, ImageFilter
-from libphash import ImageContext
+from libphash import Config, ImageContext
 
 
 def ensure_dir(path):
@@ -61,13 +61,14 @@ def generate_augmentations(base_path, output_dir, fmt="JPEG"):
 def get_hash_lp(path, algo_name, ctx=None, mode=None):
     """Get hash from libphash context."""
     if ctx is None:
-        with ImageContext(path, load_grayscale=True) as local_ctx:
-            if mode and algo_name == "whash":
-                local_ctx.set_whash_mode(mode)
-            return getattr(local_ctx, algo_name)
-    if mode and algo_name == "whash":
-        ctx.set_whash_mode(mode)
-    return getattr(ctx, algo_name)
+        config = Config(grayscale=True)
+        if mode and algo_name == "whash":
+            config = config.replace(whash_mode=mode)
+        with ImageContext(config) as local_ctx:
+            local_ctx.load_file(path)
+            return local_ctx.hash(algo_name)
+    ctx.load_file(path)
+    return ctx.hash(algo_name)
 
 
 def get_hash_ih(path, ih_func):

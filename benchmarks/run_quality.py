@@ -22,7 +22,7 @@ ALGORITHMS = [
     ("wHash (Fast)", imagehash.whash, "whash", "fast"),
     ("wHash (Full)", imagehash.whash, "whash", "full"),
     ("BlockMeanHash", None, "bmh", None),
-    ("RadialHash", None, "radial_hash", None),
+    ("RadialHash", None, "radial", None),
 ]
 
 
@@ -85,12 +85,10 @@ def evaluate_quality(files, ground_truth):
                     dist_vectors[key].append(999) # Fail distance
                     continue
                 
-                from libphash.ph_types import Digest
+                from libphash import Digest
                 if isinstance(h1, Digest):
-                    if "Radial" in key:
-                        dist = h1.distance_l2(h2)
-                    else:
-                        dist = h1.distance_hamming(h2)
+                    # A distance: lower is closer, as for the other hashes here.
+                    dist = 1.0 - h1.similarity(h2)
                 elif isinstance(h1, int):
                     dist = bin(h1 ^ h2).count("1")
                 else:

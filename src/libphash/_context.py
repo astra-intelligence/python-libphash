@@ -1,0 +1,333 @@
+from __future__ import annotations
+
+import threading
+from typing import Any, Literal, NoReturn, Union, overload
+
+from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
+from ._config import Config, _new_context
+from ._digest import Digest
+from ._native import ffi, lib
+from ._sources import (
+    READ_FILES_IN_PYTHON,
+    ChannelOrder,
+    Pixels,
+    StrPath,
+    encode_path,
+    has_shape,
+    is_path,
+    is_pil_image,
+    pixels_from_array,
+    pixels_from_pil,
+    read_file,
+)
+from .exceptions import PH_ERR_IO, PH_SUCCESS, make_error
+
+Uint64Name = Literal["ahash", "dhash", "phash", "whash"]
+DigestName = Literal["bmh", "mhash", "radial", "color_hash", "color_moments"]
+Uint64Algorithm = Literal[
+    Algorithm.AHASH, Algorithm.DHASH, Algorithm.PHASH, Algorithm.WHASH
+]
+DigestAlgorithm = Literal[
+    Algorithm.BMH,
+    Algorithm.MHASH,
+    Algorithm.RADIAL,
+    Algorithm.COLOR_HASH,
+    Algorithm.COLOR_MOMENTS,
+]
+Source = Any  # path, encoded bytes, file-like, array of pixels or Pillow image
+
+_UINT64_COMPUTE = {
+    Algorithm.AHASH: lib.ph_compute_ahash,
+    Algorithm.DHASH: lib.ph_compute_dhash,
+    Algorithm.PHASH: lib.ph_compute_phash,
+    Algorithm.WHASH: lib.ph_compute_whash,
+}
+
+
+class ImageContext:
+    """One image and the configuration to hash it with: a libphash ``ph_context_t``.
+
+    Load an image with one of the ``load_*`` methods, then compute any number of hashes
+    from it; loading the next image reuses the context's buffers, which makes a context
+    kept across a loop faster than :func:`hash` per image.
+
+    A context is safe to share between threads: the calls into C are serialized on a lock
+    of the context. Threads that work in parallel each need their own context (or a
+    batch, :func:`hash_files`). Close it with :meth:`close` or a ``with`` block; one left
+    to the garbage collector is freed too.
+    """
+
+    __slots__ = ("_ptr", "_lock", "_config", "__weakref__")
+
+    def __init__(self, config: Config | None = None) -> None:
+        self._lock = threading.Lock()
+        self._config = config if config is not None else Config()
+        if not isinstance(self._config, Config):
+            raise TypeError(f"expected a Config, got {type(config).__name__}")
+        ptr = _new_context()
+        self._ptr: Any = ffi.gc(ptr, lib.ph_free)
+        self._config._apply(self._ptr)
+
+    # --- Lifecycle -------------------------------------------------------------------
+
+    def close(self) -> None:
+        """Free the C context. Idempotent; any later use raises ValueError."""
+        with self._lock:
+            if self._ptr is not None:
+                ffi.release(self._ptr)
+                self._ptr = None
+
+    @property
+    def closed(self) -> bool:
+        return self._ptr is None
+
+    def __enter__(self) -> ImageContext:
+        self._live()
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+
+    def __repr__(self) -> str:
+        if self._ptr is None:
+            return "<ImageContext closed>"
+        if not self.is_loaded:
+            return "<ImageContext empty>"
+        return f"<ImageContext {self.width}x{self.height}x{self.channels}>"
+
+    def __reduce__(self) -> NoReturn:
+        raise TypeError("ImageContext cannot be pickled; pickle its Config instead")
+
+    def __copy__(self) -> NoReturn:
+        raise TypeError(
+            "ImageContext cannot be copied; create one from its Config instead"
+        )
+
+    def __deepcopy__(self, memo: object) -> NoReturn:
+        self.__copy__()
+
+    def _live(self) -> Any:
+        ptr = self._ptr
+        if ptr is None:
+            raise ValueError("operation on a closed ImageContext")
+        return ptr
+
+    # --- State -----------------------------------------------------------------------
+
+    @property
+    def config(self) -> Config:
+        return self._config
+
+    @property
+    def is_loaded(self) -> bool:
+        with self._lock:
+            return bool(lib.ph_is_loaded(self._live()))
+
+    def _dimensions(self) -> tuple[int, int, int]:
+        out = ffi.new("int[3]")
+        with self._lock:
+            lib.ph_context_get_dimensions(self._live(), out, out + 1, out + 2)
+        return int(out[0]), int(out[1]), int(out[2])
+
+    @property
+    def width(self) -> int:
+        """Width of the loaded image (after orientation and decode scale), 0 if none."""
+        return self._dimensions()[0]
+
+    @property
+    def height(self) -> int:
+        return self._dimensions()[1]
+
+    @property
+    def channels(self) -> int:
+        """3 for color, 1 for grayscale; an alpha channel is resolved at load and not kept."""
+        return self._dimensions()[2]
+
+    # --- Loading ---------------------------------------------------------------------
+
+    def load(self, source: Source) -> None:
+        """Load whatever ``source`` is: a path, encoded bytes, a binary file object, an
+        array of pixels or a Pillow image. Bytes are always the encoded file, never a path.
+        """
+        if is_path(source):
+            self.load_file(source)
+        elif isinstance(source, (bytes, bytearray)) or (
+            isinstance(source, memoryview) and not has_shape(source)
+        ):
+            self.load_bytes(source)
+        elif is_pil_image(source):
+            self.load_pil(source)
+        elif has_shape(source):
+            self.load_pixels(source)
+        elif hasattr(source, "read"):
+            self.load_fileobj(source)
+        else:
+            raise TypeError(
+                "expected a path, bytes, a binary file object, an array of pixels or a "
+                f"Pillow image, got {type(source).__name__}"
+            )
+
+    def load_file(self, path: StrPath) -> None:
+        """Load an image file. On failure the context holds no image."""
+        encoded = encode_path(path)
+        if READ_FILES_IN_PYTHON:
+            self._load_file_in_python(path)
+            return
+        with self._lock:
+            ptr = self._live()
+            code = lib.ph_load_from_file(ptr, encoded)
+            if code != PH_SUCCESS:
+                raise make_error(code, detail=self._last_message(ptr), path=path)
+
+    def _load_file_in_python(self, path: StrPath) -> None:
+        try:
+            data = read_file(path)
+        except OSError as e:
+            raise make_error(
+                PH_ERR_IO, detail=f"{e.strerror}: {path!s}", path=path
+            ) from e
+        if not data:
+            raise make_error(PH_ERR_IO, detail=f"empty file: {path!s}", path=path)
+        self.load_bytes(data)
+
+    def load_bytes(self, data: bytes | bytearray | memoryview) -> None:
+        """Load an encoded image (JPEG, PNG, WebP, ...) from memory, without a copy.
+
+        The buffer must not change while the call runs. On failure the context holds no
+        image.
+        """
+        try:
+            buf = ffi.from_buffer("const uint8_t[]", data)
+        except TypeError:
+            raise TypeError(
+                f"expected bytes-like encoded image data, got {type(data).__name__}"
+            ) from None
+        with self._lock:
+            ptr = self._live()
+            code = lib.ph_load_from_memory(ptr, buf, len(buf))
+            if code != PH_SUCCESS:
+                raise make_error(code, detail=self._last_message(ptr))
+
+    def load_fileobj(self, fileobj: Any) -> None:
+        """Read a binary file object (an open file, ``io.BytesIO``, a response body) to
+        its end and load the bytes."""
+        data = fileobj.read()
+        if not isinstance(data, (bytes, bytearray, memoryview)):
+            raise TypeError(
+                f"{type(fileobj).__name__}.read() returned {type(data).__name__}, not bytes"
+            )
+        self.load_bytes(data)
+
+    def load_pixels(self, pixels: Any, channel_order: ChannelOrder = "rgb") -> None:
+        """Load decoded pixels: an 8-bit array of shape (h, w), (h, w, 1), (h, w, 3) or
+        (h, w, 4), e.g. a numpy ``uint8`` array. ``channel_order="bgr"`` reads OpenCV's
+        order. The pixels are copied into the context, and no EXIF orientation applies.
+        On failure the previously loaded image stays loaded.
+        """
+        self._load_pixels(pixels_from_array(pixels, channel_order))
+
+    def load_pil(self, image: Any) -> None:
+        """Load a Pillow image (see :func:`pixels_from_pil` for how each mode is read)."""
+        self._load_pixels(pixels_from_pil(image))
+
+    def _load_pixels(self, px: Pixels) -> None:
+        with self._lock:
+            ptr = self._live()
+            code = lib.ph_load_from_pixels(
+                ptr, px.pointer, px.width, px.height, px.channels, px.stride
+            )
+            if code != PH_SUCCESS:
+                raise make_error(code, detail=self._last_message(ptr))
+        del px
+
+    @staticmethod
+    def _last_message(ptr: Any) -> str:
+        msg = lib.ph_get_last_error_message(ptr)
+        if msg == ffi.NULL:
+            return ""
+        return str(ffi.string(msg).decode("utf-8", "replace"))
+
+    # --- Hashing ---------------------------------------------------------------------
+
+    @overload
+    def hash(self, algorithm: Uint64Algorithm | Uint64Name = ...) -> int: ...
+    @overload
+    def hash(self, algorithm: DigestAlgorithm | DigestName) -> Digest: ...
+    @overload
+    def hash(self, algorithm: AlgorithmLike) -> int | Digest: ...
+
+    def hash(self, algorithm: AlgorithmLike = Algorithm.PHASH) -> int | Digest:
+        """Compute one hash of the loaded image: an ``int`` for aHash, dHash, pHash and
+        wHash, a :class:`Digest` for the others."""
+        algo = to_algorithm(algorithm)
+        compute = _UINT64_COMPUTE.get(algo)
+        with self._lock:
+            ptr = self._live()
+            if compute is not None:
+                out64 = ffi.new("uint64_t *")
+                code = compute(ptr, out64)
+                if code != PH_SUCCESS:
+                    raise make_error(code, context=f"computing {algo}")
+                return int(out64[0])
+            digest = ffi.new("ph_digest_t *")
+            code = lib.ph_compute_digest(ptr, int(algo), digest)
+            if code != PH_SUCCESS:
+                raise make_error(code, context=f"computing {algo}")
+        return Digest._from_c(digest)
+
+    def hashes(self, *algorithms: AlgorithmLike) -> dict[Algorithm, Union[int, Digest]]:
+        """Compute several hashes at once. The 64-bit ones share their work on the full
+        image (one ``ph_compute_multi`` call); digests are computed one by one."""
+        algos = [to_algorithm(a) for a in algorithms] or [Algorithm.PHASH]
+        uint64 = sorted({a for a in algos if a in _UINT64_COMPUTE})
+        result: dict[Algorithm, Union[int, Digest]] = {}
+        if uint64:
+            out = ffi.new("uint64_t[]", len(uint64))
+            with self._lock:
+                code = lib.ph_compute_multi(self._live(), uint64_flags(uint64), out)
+            if code != PH_SUCCESS:
+                raise make_error(
+                    code, context="computing " + ", ".join(map(str, uint64))
+                )
+            # Slots follow ascending flag bits, which is ascending Algorithm value.
+            result.update(zip(uint64, (int(v) for v in out)))
+        for algo in algos:
+            if algo not in result:
+                result[algo] = self.hash(algo)
+        return {a: result[a] for a in algos}
+
+    def ahash(self) -> int:
+        """Average hash: each cell of an 8x8 grayscale reduction against their mean."""
+        return self.hash(Algorithm.AHASH)
+
+    def dhash(self) -> int:
+        """Difference hash: horizontal neighbor comparisons in a 9x8 grayscale reduction."""
+        return self.hash(Algorithm.DHASH)
+
+    def phash(self) -> int:
+        """Perceptual hash: the low-frequency DCT block of a reduction, against its median."""
+        return self.hash(Algorithm.PHASH)
+
+    def whash(self) -> int:
+        """Wavelet hash: the low-frequency Haar band of a reduction, against its median."""
+        return self.hash(Algorithm.WHASH)
+
+    def bmh(self) -> Digest:
+        """Block mean hash: one bit per block of a ``bmh_block_size`` grid (BITS)."""
+        return self.hash(Algorithm.BMH)
+
+    def mhash(self) -> Digest:
+        """Marr-Hildreth hash: a Laplacian-of-Gaussian response, nine bits per window (BITS, 576 bits)."""
+        return self.hash(Algorithm.MHASH)
+
+    def radial(self) -> Digest:
+        """Radial variance hash: rotation-tolerant projections (COEFFICIENTS)."""
+        return self.hash(Algorithm.RADIAL)
+
+    def color_hash(self) -> Digest:
+        """Color histogram, compared by histogram intersection (HISTOGRAM)."""
+        return self.hash(Algorithm.COLOR_HASH)
+
+    def color_moments(self) -> Digest:
+        """Color moments: mean, standard deviation and cube root of the third moment per channel (VECTOR16)."""
+        return self.hash(Algorithm.COLOR_MOMENTS)

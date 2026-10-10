@@ -40,12 +40,18 @@ On macOS, `ARCHFLAGS="-arch x86_64"` cross-builds an x86-64 wheel (as cibuildwhe
 
 ## Architecture
 
-- **`src/libphash/_native.pyi`** — type stub for the generated `ffi`/`lib`.
-- **`src/libphash/context.py`** — `ImageContext`: owns one `ph_context_t*`, loads an image (path or bytes), exposes settings and one property per hash.
-- **`src/libphash/ph_types.py`** — `Digest` (wrapper over `ph_digest_t`) and `HashMethod`.
-- **`src/libphash/exceptions.py`** — `PhashError` hierarchy and `check_error()`, which maps a `ph_error_t` to an exception.
-- **`src/libphash/utils.py`** — module-level helpers (`get_hash`, `compare_images`, `hamming_distance`, decoder availability).
-- **`tests/`** — pytest suite; **`benchmarks/`** — speed and quality comparison with other libraries (datasets in `benchmarks/data/`, not tracked).
+The public API is what `src/libphash/__init__.py` exports; every other module is private (`_name.py`) except `exceptions.py`.
+
+- **`__init__.py`** — `hash()` (one image, any source), `libphash_version()`, `build_info()`, `can_decode()`, `digest_info()`, and the re-exports.
+- **`_context.py`** — `ImageContext`: owns one `ph_context_t*` (freed by `ffi.gc` or `close()`; use after close is a `ValueError`), serializes its C calls on a lock, `load_*` methods and the hash methods. `int` for the 64-bit algorithms, `Digest` for the rest.
+- **`_config.py`** — `Config`, a frozen dataclass of every context setting, validated on creation by applying it to a scratch context. Its defaults are libphash's; a test checks `Config()` hashes like a bare `ph_create()` context.
+- **`_digest.py`** — `Digest` (bytes + `DigestKind`, immutable; each comparison accepts only its kinds) and the 64-bit helpers.
+- **`_algorithms.py`** — `Algorithm` and `DigestKind` enums (literal values, checked against the C enums by a test) and name/flag conversion.
+- **`_batch.py`** — `hash_files()` / `hash_buffers()` over `ph_hash_*_ex`; callbacks are `extern "Python"` (`@ffi.def_extern`); a callback's exception is re-raised after the call; Ctrl+C reaches `should_continue` through `signal.set_wakeup_fd`.
+- **`_sources.py`** — paths (`os.fsencode`; on Windows files are read in Python, because libphash opens paths with the ANSI code page), arrays (zero-copy when rows are the only gaps), Pillow modes.
+- **`exceptions.py`** — `PhashError` tree; `make_error()` maps a `ph_error_t`. `ph_get_last_error_message()` is attached only to load errors: libphash writes it only on loads, so after a failed hash it holds a previous load's detail.
+- **`_native.pyi`** — stub for the generated `ffi`/`lib`; **`py.typed`** marks the package as typed.
+- **`tests/`** — pytest suite (`test_cdef.py` fails when a header function is neither wrapped nor listed as deliberately unwrapped); **`benchmarks/`** — speed and quality comparison with ImageHash (datasets in `benchmarks/data/`, not tracked).
 - **`.github/workflows/`** — CI; wheels are built with cibuildwheel (configuration in `pyproject.toml`).
 
 Code, comments, docstrings and tracked documentation are in English.

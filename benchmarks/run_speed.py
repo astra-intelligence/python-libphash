@@ -3,16 +3,16 @@ import argparse
 import pandas as pd
 from tabulate import tabulate
 import imagehash
-from libphash import ImageContext
+from libphash import Config, ImageContext
 from benchmarks.utils import get_base_files
 
 
 def run_speed_test(image_paths, workers=None):
     algorithms = [
-        ("ahash", imagehash.average_hash, lambda ctx: ctx.ahash),
-        ("phash", imagehash.phash, lambda ctx: ctx.phash),
-        ("dhash", imagehash.dhash, lambda ctx: ctx.dhash),
-        ("whash", imagehash.whash, lambda ctx: ctx.whash),
+        ("ahash", imagehash.average_hash, lambda ctx: ctx.ahash()),
+        ("phash", imagehash.phash, lambda ctx: ctx.phash()),
+        ("dhash", imagehash.dhash, lambda ctx: ctx.dhash()),
+        ("whash", imagehash.whash, lambda ctx: ctx.whash()),
     ]
 
     results = []
@@ -31,7 +31,8 @@ def run_speed_test(image_paths, workers=None):
         # libphash
         start = time.perf_counter()
         for p in image_paths:
-            with ImageContext(p, load_grayscale=True) as ctx:
+            with ImageContext(Config(grayscale=True)) as ctx:
+                ctx.load_file(p)
                 _ = lp_func(ctx)
         lp_time = time.perf_counter() - start
 

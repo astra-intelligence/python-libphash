@@ -27,11 +27,14 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "mypy", "ruff", "setuptools"]
+dev = ["pytest", "mypy", "ruff", "setuptools", "numpy", "Pillow"]
 benchmark = ["imagehash", "Pillow", "pandas", "tabulate", "scikit-learn", "tqdm", "numpy"]
 
 [tool.setuptools]
 zip-safe = false
+
+[tool.setuptools.package-data]
+libphash = ["py.typed", "*.pyi"]
 
 [tool.setuptools.dynamic]
 version = { attr = "libphash._version.__version__" }
