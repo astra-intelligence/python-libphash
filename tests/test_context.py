@@ -5,9 +5,9 @@ import threading
 from pathlib import Path
 
 import pytest
+from conftest import data
 
 import libphash as ph
-from conftest import data
 
 
 def test_close_is_idempotent_and_use_after_close_raises(photo: Path) -> None:
@@ -45,9 +45,11 @@ def test_cannot_pickle_or_copy() -> None:
 
 def test_dimensions_and_state(photo: Path) -> None:
     with ph.ImageContext() as ctx:
-        assert not ctx.is_loaded and (ctx.width, ctx.height, ctx.channels) == (0, 0, 0)
+        assert not ctx.is_loaded
+        assert (ctx.width, ctx.height, ctx.channels) == (0, 0, 0)
         ctx.load_file(photo)
-        assert ctx.is_loaded and (ctx.width, ctx.height, ctx.channels) == (400, 400, 3)
+        assert ctx.is_loaded
+        assert (ctx.width, ctx.height, ctx.channels) == (400, 400, 3)
     with ph.ImageContext(ph.Config(grayscale=True)) as ctx:
         ctx.load_file(photo)
         assert ctx.channels == 1
@@ -95,7 +97,7 @@ def test_one_context_shared_by_threads(photo: Path) -> None:
                 p = paths[(i + j) % len(paths)]
                 ctx.load_file(p)
                 ctx.radial()  # must not crash, whichever image is loaded by then
-        except BaseException as e:  # noqa: BLE001
+        except BaseException as e:  # noqa: BLE001 -- reported by the main thread
             errors.append(e)
 
     threads = [threading.Thread(target=work, args=(i,)) for i in range(8)]

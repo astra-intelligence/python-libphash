@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, Callable, NoReturn, final
 
 from ._algorithms import DigestKind
-from ._native import ffi, lib
 from ._errors import PH_SUCCESS, make_error
+from ._native import ffi, lib
 from .exceptions import DigestKindError, InvalidArgumentError
 
 PH_DIGEST_MAX_BYTES: int = int(lib.PH_DIGEST_MAX_BYTES)
@@ -23,13 +23,13 @@ _METRIC_KINDS = {
 class Digest:
     """A multi-byte hash: the bytes and the kind that says how they may be compared.
 
-    BMH and mHash give bit vectors, Radial quantized coefficients, ColorHash a histogram,
-    ColorMoments a vector of signed 16-bit features. Each comparison method accepts only
-    the kinds it is meaningful for and raises :class:`DigestKindError` for the others;
-    :meth:`similarity` picks the comparison that belongs to the kind.
+    BMH and mHash give bit vectors, Radial quantized coefficients, ColorHash a
+    histogram, ColorMoments a vector of signed 16-bit features. Each comparison method
+    accepts only the kinds it is meaningful for and raises :class:`DigestKindError` for
+    the others; :meth:`similarity` picks the comparison that belongs to the kind.
 
-    Digests are immutable, hashable, comparable for equality and picklable. ``hex()`` and
-    ``from_hex()`` give a text form that keeps the kind.
+    Digests are immutable, hashable, comparable for equality and picklable. ``hex()``
+    and ``from_hex()`` give a text form that keeps the kind.
     """
 
     __slots__ = ("_data", "_kind")
@@ -51,7 +51,10 @@ class Digest:
 
     @classmethod
     def from_uint64(cls, value: int) -> Digest:
-        """A 64-bit hash as an 8-byte ``BITS`` digest, most significant byte first."""
+        """Wrap a 64-bit hash as an 8-byte ``BITS`` digest.
+
+        The most significant byte comes first, as in :func:`hash_to_hex`.
+        """
         return cls(_check_uint64(value).to_bytes(8, "big"), DigestKind.BITS)
 
     @classmethod
@@ -95,7 +98,10 @@ class Digest:
         return (Digest, (self._data, int(self._kind)))
 
     def hex(self) -> str:
-        """Text form: the kind, a colon, the bytes in lowercase hex (``"bits:3fa0..."``)."""
+        """Return the text form: the kind, a colon, the bytes in lowercase hex.
+
+        For example ``"bits:3fa0..."``; :meth:`from_hex` parses it back.
+        """
         size = int(lib.PH_DIGEST_HEX_BUFFER_SIZE)
         out = ffi.new("char[]", size)
         code = lib.ph_digest_to_hex(digest_to_c(self), out, size)
@@ -114,12 +120,13 @@ class Digest:
                 _wrong_kind(metric, d._kind)
         if len(self._data) != len(other._data):
             raise InvalidArgumentError(
-                f"{metric}: digests of different sizes ({len(self._data)} and {len(other._data)} bytes)"
+                f"{metric}: digests of different sizes "
+                f"({len(self._data)} and {len(other._data)} bytes)"
             )
         return digest_to_c(self), digest_to_c(other)
 
     def hamming_distance(self, other: Digest) -> int:
-        """Number of differing bits between two ``BITS`` digests (BMH, mHash)."""
+        """Count the differing bits between two ``BITS`` digests (BMH, mHash)."""
         a, b = self._pair(other, "hamming_distance")
         return int(
             _sentinel(int(lib.ph_hamming_distance_digest(a, b)), "hamming_distance")
@@ -131,7 +138,10 @@ class Digest:
         return float(_sentinel(float(lib.ph_l2_distance(a, b)), "l2_distance"))
 
     def histogram_intersection(self, other: Digest) -> float:
-        """Share of color two ``HISTOGRAM`` digests (ColorHash) have in common, 0.0 to 1.0."""
+        """Share of color two ``HISTOGRAM`` digests (ColorHash) have in common.
+
+        The result is 0.0 to 1.0.
+        """
         a, b = self._pair(other, "histogram_intersection")
         return _out_double(
             lib.ph_histogram_intersection, a, b, "histogram_intersection"
@@ -140,46 +150,49 @@ class Digest:
     def radial_similarity(self, other: Digest) -> float:
         """Peak cross-correlation of two Radial digests, -1.0 to 1.0.
 
-        Raises :class:`NoStructureError` when either digest is flat (all bytes equal), as
-        the Radial hash of an image without angular structure is: any score would be
+        Raises :class:`NoStructureError` when either digest is flat (all bytes equal),
+        as the Radial hash of an image without angular structure is: any score would be
         invented. :data:`RADIAL_PCC_THRESHOLD` is the source's cut for "same image".
         """
         a, b = self._pair(other, "radial_similarity")
         return _out_double(lib.ph_radial_similarity, a, b, "radial_similarity")
 
     def similarity(self, other: Digest) -> float:
-        """The similarity measure that belongs to the digests' kind.
+        """Compare with the similarity measure that belongs to the digests' kind.
 
-        ``BITS``: share of equal bits, 0.0 to 1.0. ``HISTOGRAM``: histogram intersection,
-        0.0 to 1.0. ``COEFFICIENTS``: radial peak correlation, -1.0 to 1.0. ``VECTOR16``
-        (ColorMoments) has no normalized similarity: use :meth:`l2_distance`.
+        ``BITS``: share of equal bits, 0.0 to 1.0. ``HISTOGRAM``: histogram
+        intersection, 0.0 to 1.0. ``COEFFICIENTS``: radial peak correlation, -1.0 to
+        1.0. ``VECTOR16`` (ColorMoments) has no normalized similarity: use
+        :meth:`l2_distance`.
         """
         kind = self._kind if self._kind != DigestKind.UNSPECIFIED else other._kind
         if kind == DigestKind.BITS:
             a, b = self._pair(other, "hamming_distance")
-            return float(_sentinel(float(lib.ph_similarity_digest(a, b)), "similarity"))
+            value = float(lib.ph_similarity_digest(a, b))
+            return float(_sentinel(value, "similarity"))
         if kind == DigestKind.HISTOGRAM:
             return self.histogram_intersection(other)
         if kind == DigestKind.COEFFICIENTS:
             return self.radial_similarity(other)
         if kind == DigestKind.UNSPECIFIED:
             raise DigestKindError(
-                "similarity: neither digest states its kind, so the measure is unknown; "
-                "call hamming_distance(), l2_distance(), histogram_intersection() or "
-                "radial_similarity() explicitly"
+                "similarity: neither digest states its kind, so the measure is "
+                "unknown; call hamming_distance(), l2_distance(), "
+                "histogram_intersection() or radial_similarity() explicitly"
             )
         raise DigestKindError(
-            f"similarity: {kind.name} digests have no normalized similarity; use l2_distance()"
+            f"similarity: {kind.name} digests have no normalized similarity; "
+            "use l2_distance()"
         )
 
 
 def digest_from_c(c_digest: Any) -> Digest:
-    """A Digest from a ``ph_digest_t *``."""
+    """Copy a ``ph_digest_t *`` into a Digest."""
     return Digest(bytes(ffi.buffer(c_digest.data, c_digest.size)), int(c_digest.kind))
 
 
 def digest_to_c(digest: Digest) -> Any:
-    """A new ``ph_digest_t *`` holding ``digest``."""
+    """Return a new ``ph_digest_t *`` holding ``digest``."""
     data = digest.data
     c_digest = ffi.new("ph_digest_t *")
     c_digest.size = len(data)
@@ -228,17 +241,20 @@ def _check_uint64(value: object) -> int:
 
 
 def hamming_distance(a: int, b: int) -> int:
-    """Number of differing bits between two 64-bit hashes, 0 to 64."""
+    """Count the differing bits between two 64-bit hashes, 0 to 64."""
     return int(lib.ph_hamming_distance(_check_uint64(a), _check_uint64(b)))
 
 
 def similarity(a: int, b: int) -> float:
-    """Share of equal bits between two 64-bit hashes: 1.0 identical, near 0.5 unrelated."""
+    """Share of equal bits between two 64-bit hashes.
+
+    1.0 means identical; unrelated images score near 0.5.
+    """
     return float(lib.ph_similarity(_check_uint64(a), _check_uint64(b)))
 
 
 def hash_to_hex(value: int) -> str:
-    """A 64-bit hash as 16 lowercase hex digits, most significant first."""
+    """Format a 64-bit hash as 16 lowercase hex digits, most significant first."""
     out = ffi.new("char[]", 17)
     code = lib.ph_hash_to_hex(_check_uint64(value), out, 17)
     if code != PH_SUCCESS:

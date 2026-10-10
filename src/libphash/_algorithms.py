@@ -3,8 +3,8 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Union
 
-from ._native import ffi, lib
 from ._errors import PH_SUCCESS
+from ._native import ffi, lib
 from .exceptions import InvalidArgumentError
 
 
@@ -33,7 +33,10 @@ class Algorithm(IntEnum):
 
 
 class DigestKind(IntEnum):
-    """What a digest's bytes mean, and so which comparisons it supports (``ph_digest_kind_t``)."""
+    """What a digest's bytes mean, and so which comparisons it supports.
+
+    The values are those of ``ph_digest_kind_t``.
+    """
 
     UNSPECIFIED = 0
     BITS = 1
@@ -71,12 +74,13 @@ def to_algorithm(value: object) -> Algorithm:
 
 
 def uint64_flags(algorithms: list[Algorithm]) -> int:
-    """The ph_hash_flags_t bits of uint64 algorithms: bit ``1 << value``."""
+    """Return the ph_hash_flags_t bits of uint64 algorithms: bit ``1 << value``."""
     flags = 0
     for algo in algorithms:
         if algo not in UINT64_ALGORITHMS:
+            names = ", ".join(str(a) for a in sorted(UINT64_ALGORITHMS))
             raise InvalidArgumentError(
-                f"{algo} produces a digest; only {', '.join(str(a) for a in sorted(UINT64_ALGORITHMS))} "
+                f"{algo} produces a digest; only {names} "
                 "can be computed together or in a batch"
             )
         flags |= 1 << int(algo)

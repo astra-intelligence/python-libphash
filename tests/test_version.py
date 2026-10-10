@@ -32,8 +32,9 @@ def test_distribution_metadata_matches() -> None:
 
 def test_submodule_is_on_the_release_tag() -> None:
     try:
-        tag = subprocess.run(
-            ["git", "-C", str(NATIVE_DIR), "describe", "--tags", "--exact-match"],
+        git = ["git", "-C", str(NATIVE_DIR), "describe", "--tags", "--exact-match"]
+        tag = subprocess.run(  # noqa: S603 -- a fixed git command
+            git,
             capture_output=True,
             text=True,
             check=True,

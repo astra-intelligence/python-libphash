@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import dataclasses
 import pickle
-from pathlib import Path
-from typing import Any
+import random
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 import libphash as ph
 from libphash import Config
 from libphash._native import ffi, lib
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def raw_hashes(path: Path) -> dict[ph.Algorithm, bytes]:
@@ -48,7 +53,7 @@ def test_default_gray_weights_match_the_getter() -> None:
 
 
 @pytest.mark.parametrize(
-    "field,value",
+    ("field", "value"),
     [
         ("gamma", 0.0),
         ("phash_reduction_size", 9),
@@ -66,7 +71,7 @@ def test_out_of_range_names_the_field(field: str, value: object) -> None:
 
 
 @pytest.mark.parametrize(
-    "field,value",
+    ("field", "value"),
     [
         ("gamma", float("nan")),
         ("phash_dct_size", 32.0),
@@ -90,7 +95,8 @@ def test_frozen_replace_pickle() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         cfg.gamma = 2.0  # type: ignore[misc]
     changed = cfg.replace(radial_sigma=2.0)
-    assert changed.radial_sigma == 2.0 and cfg.radial_sigma == 3.5
+    assert changed.radial_sigma == 2.0
+    assert cfg.radial_sigma == 3.5
     with pytest.raises(ph.InvalidArgumentError):
         cfg.replace(radial_sigma=100.0)
     assert pickle.loads(pickle.dumps(changed)) == changed
@@ -125,8 +131,6 @@ def test_decode_scale(photo: Path) -> None:
 def test_whash_mode_reaches_c() -> None:
     # On a photo both modes reduce to similar 8x8 block means and often agree; on noise
     # they differ.
-    import random
-
     rng = random.Random(1)
     noise = memoryview(bytes(rng.randrange(256) for _ in range(300 * 300 * 3))).cast(
         "B", (300, 300, 3)

@@ -5,8 +5,8 @@ import math
 from dataclasses import dataclass
 from typing import Any, Literal, NoReturn, cast
 
-from ._native import ffi, lib
 from ._errors import PH_SUCCESS, check, error_string
+from ._native import ffi, lib
 from .exceptions import InvalidArgumentError
 
 WHashMode = Literal["fast", "full"]
@@ -47,7 +47,8 @@ class Config:
     gray_weights: tuple[int, int, int] = (38, 75, 15)
     #: pHash: side of the DCT grid (``phash_reduction_size``..32).
     phash_dct_size: int = 32
-    #: pHash: side of the low-frequency block the hash is made of, 4..8 (the hash has its square in bits).
+    #: pHash: side of the low-frequency block the hash is made of, 4..8 (the hash has
+    #: its square in bits).
     phash_reduction_size: int = 8
     #: Radial: number of lines through the center, 40..4096.
     radial_projections: int = 180
@@ -67,7 +68,8 @@ class Config:
     whash_mode: WHashMode = "fast"
     #: wHash: zero the coarsest LL coefficient (ImageHash's ``remove_max_haar_ll``).
     whash_remove_max_haar_ll: bool = False
-    #: Decode to one gray channel. Faster; the color algorithms then raise RequiresColorError.
+    #: Decode to one gray channel: faster, but the color algorithms then raise
+    #: RequiresColorError.
     grayscale: bool = False
     #: How an alpha channel is resolved: blended over grey, white or black, or ignored.
     alpha_mode: AlphaMode = "grey"
@@ -87,7 +89,7 @@ class Config:
             lib.ph_free(ctx)
 
     def replace(self, **changes: Any) -> Config:
-        """A copy with the given fields changed (checked like a new Config)."""
+        """Return a copy with the given fields changed, checked like a new Config."""
         return dataclasses.replace(self, **changes)
 
 
@@ -155,7 +157,7 @@ def new_context() -> Any:
 
 
 def _check_types(cfg: Config) -> None:
-    # The annotations do not bind an untyped caller; every value is checked as an object.
+    # Annotations do not bind an untyped caller: every value is checked as an object.
     def fail(name: str, expected: str) -> NoReturn:
         raise InvalidArgumentError(
             f"Config: {name} must be {expected}, got {getattr(cfg, name)!r}"

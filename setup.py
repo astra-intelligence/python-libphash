@@ -1,3 +1,5 @@
+"""Build the CFFI extension, with libphash built by its own CMake project first."""
+
 import sys
 from pathlib import Path
 
@@ -5,7 +7,7 @@ from setuptools import setup
 from setuptools.command.build_ext import build_ext
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
-from native import build_libphash, link_arguments  # noqa: E402
+from native import build_libphash, link_arguments
 
 
 class BuildExt(build_ext):
@@ -16,6 +18,7 @@ class BuildExt(build_ext):
     """
 
     def run(self) -> None:
+        """Build libphash, then the extensions with its link arguments."""
         args = link_arguments(build_libphash())
         for ext in self.extensions:
             ext.include_dirs.extend(args["include_dirs"])

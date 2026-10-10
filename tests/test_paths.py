@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 import libphash as ph
+import libphash._batch
+import libphash._context
 
 
 @pytest.mark.parametrize(
@@ -74,16 +76,14 @@ def test_path_type_is_checked() -> None:
 
 @pytest.fixture
 def files_read_in_python(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Windows code path (the binding reads files itself), on any OS."""
-    import libphash._batch
-    import libphash._context
-
+    """Take the Windows code path, where the binding reads files itself, on any OS."""
     monkeypatch.setattr(libphash._context, "READ_FILES_IN_PYTHON", True)
     monkeypatch.setattr(libphash._batch, "READ_FILES_IN_PYTHON", True)
 
 
+@pytest.mark.usefixtures("files_read_in_python")
 def test_python_read_path_matches_c(
-    files_read_in_python: None, tmp_path: Path, photo: Path, photo_bytes: bytes
+    tmp_path: Path, photo: Path, photo_bytes: bytes
 ) -> None:
     path = tmp_path / "кот.jpg"
     path.write_bytes(photo_bytes)
@@ -105,11 +105,12 @@ def test_python_read_path_matches_c(
     assert isinstance(results[1].error, FileNotFoundError)
 
 
+@pytest.mark.usefixtures("files_read_in_python")
 def test_python_read_path_cancels_across_chunks(
-    files_read_in_python: None, tmp_path: Path, photo_bytes: bytes
+    tmp_path: Path, photo_bytes: bytes
 ) -> None:
     path = tmp_path / "a.jpg"
     path.write_bytes(photo_bytes)
-    results = ph.hash_files([path] * 300, threads=1, progress=lambda d, t: d < 100)
+    results = ph.hash_files([path] * 300, threads=1, progress=lambda d, _t: d < 100)
     assert sum(r.ok for r in results) == 100
     assert all(isinstance(r.error, ph.BatchCancelledError) for r in results[100:])

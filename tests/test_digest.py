@@ -25,7 +25,8 @@ def test_immutable_hashable_equal() -> None:
     assert a == Digest(b"\x01\x02", 1)
     assert a != Digest(b"\x01\x02", DigestKind.HISTOGRAM)
     assert len({a, Digest(b"\x01\x02", DigestKind.BITS)}) == 1
-    assert bytes(a) == b"\x01\x02" and len(a) == 2
+    assert bytes(a) == b"\x01\x02"
+    assert len(a) == 2
 
 
 def test_hex_round_trip_keeps_the_kind(photo: Path) -> None:

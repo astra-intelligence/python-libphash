@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
+from conftest import data
 
 import libphash as ph
-from conftest import data
 
 
 def test_missing_file_is_file_not_found(tmp_path: Path) -> None:
@@ -15,7 +15,8 @@ def test_missing_file_is_file_not_found(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError) as exc:
         ph.hash(missing)
     err = exc.value
-    assert isinstance(err, ph.ImageIOError) and isinstance(err, ph.PhashError)
+    assert isinstance(err, ph.ImageIOError)
+    assert isinstance(err, ph.PhashError)
     assert err.code_name == "PH_ERR_IO"
     assert err.filename == str(missing)
     assert "nope.jpg" in str(err)
@@ -67,7 +68,7 @@ def test_decode_bomb_is_too_large() -> None:
 def test_load_errors_carry_the_c_detail(tmp_path: Path) -> None:
     with pytest.raises(ph.ImageIOError) as exc:
         ph.hash(tmp_path / "nope.jpg")
-    assert exc.value.detail and "nope.jpg" in exc.value.detail
+    assert "nope.jpg" in exc.value.detail
 
 
 def test_hash_error_does_not_carry_a_previous_load_detail(tmp_path: Path) -> None:
@@ -94,14 +95,16 @@ def test_exceptions_pickle(make: Callable[[], object]) -> None:
         make()
     clone = pickle.loads(pickle.dumps(exc.value))
     assert type(clone) is type(exc.value)
-    assert str(clone) == str(exc.value) and clone.code == exc.value.code
+    assert str(clone) == str(exc.value)
+    assert clone.code == exc.value.code
 
 
 def test_io_exception_pickles_with_errno(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError) as exc:
         ph.hash(tmp_path / "nope.jpg")
     clone = pickle.loads(pickle.dumps(exc.value))
-    assert isinstance(clone, FileNotFoundError) and clone.errno == exc.value.errno
+    assert isinstance(clone, FileNotFoundError)
+    assert clone.errno == exc.value.errno
 
 
 def test_builtin_bases() -> None:

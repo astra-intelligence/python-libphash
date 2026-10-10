@@ -27,7 +27,7 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "mypy", "basedpyright", "ruff", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
+dev = ["pytest", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
 benchmark = ["imagehash", "Pillow", "pandas", "tabulate", "scikit-learn", "tqdm", "numpy"]
 
 [tool.setuptools]
@@ -69,4 +69,42 @@ extraPaths = ["tools"]
 pythonVersion = "3.9"
 
 [tool.ruff]
-extend-exclude = ["native"]
+extend-exclude = ["native", "benchmarks"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "D", "UP", "B", "A", "S", "SIM", "RUF", "PL", "PT", "ANN",
+    "ARG", "BLE", "C4", "FA", "FLY", "FURB", "G", "ICN", "ISC", "LOG", "NPY", "PERF",
+    "PGH", "PIE", "PYI", "RET", "RSE", "SLOT", "T20", "TC", "TID",
+]
+ignore = [
+    # A class docstring documents its constructor and dunder methods.
+    "D105", "D107",
+    # A ph_context_t *, ph_digest_t * or other cffi pointer is typed Any by cffi.
+    "ANN401",
+    # Array ranks, channel counts and expected test values read better as literals.
+    "PLR2004",
+]
+
+[tool.ruff.lint.isort]
+# tools/ is imported through sys.path.
+known-first-party = ["libphash", "cdef", "native"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+# hash() is the main entry point, called as libphash.hash, never imported bare.
+"src/libphash/__init__.py" = ["A001"]
+# Tests are documented by their names and assert is how pytest checks. They pickle and
+# eval the library's own objects, and random draws test images, not secrets.
+"tests/**" = ["D100", "D103", "S101", "S301", "S307", "S311"]
+# The build runs CMake from PATH or the build environment, with arguments it builds.
+"tools/native.py" = ["S603"]
+
+[tool.typos.files]
+extend-exclude = ["native", "tmp", "build", "dist"]
+
+[tool.typos.default.extend-identifiers]
+# Pillow's mode name for RGB with premultiplied alpha.
+RGBa = "RGBa"

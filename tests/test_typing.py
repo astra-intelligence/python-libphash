@@ -14,14 +14,14 @@ import libphash as ph
 
 pytest.importorskip("numpy")
 pytest.importorskip("PIL")
-import numpy as np  # noqa: E402
-from PIL import Image  # noqa: E402
+import numpy as np
+from PIL import Image
 
 if TYPE_CHECKING:
     from typing_extensions import assert_type
 else:
 
-    def assert_type(value, typ):
+    def assert_type(value: object, _typ: object) -> object:
         return value
 
 

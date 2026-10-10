@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import Any, Literal, NoReturn, Union, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast, overload
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
 from ._config import Config, apply_config, new_context
 from ._digest import Digest, digest_from_c
+from ._errors import PH_ERR_IO, PH_SUCCESS, make_error
 from ._native import ffi, lib
 from ._sources import (
     READ_FILES_IN_PYTHON,
@@ -24,7 +25,9 @@ from ._sources import (
     pixels_from_pil,
     read_file,
 )
-from ._errors import PH_ERR_IO, PH_SUCCESS, make_error
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 #: Names of the algorithms that produce a 64-bit ``int``.
 Uint64Name = Literal["ahash", "dhash", "phash", "whash"]
@@ -58,13 +61,13 @@ class ImageContext:
     from it; loading the next image reuses the context's buffers, which makes a context
     kept across a loop faster than :func:`hash` per image.
 
-    A context is safe to share between threads: the calls into C are serialized on a lock
-    of the context. Threads that work in parallel each need their own context (or a
-    batch, :func:`hash_files`). Close it with :meth:`close` or a ``with`` block; one left
-    to the garbage collector is freed too.
+    A context is safe to share between threads: the calls into C are serialized on a
+    lock of the context. Threads that work in parallel each need their own context (or a
+    batch, :func:`hash_files`). Close it with :meth:`close` or a ``with`` block; one
+    left to the garbage collector is freed too.
     """
 
-    __slots__ = ("_ptr", "_lock", "_config", "__weakref__")
+    __slots__ = ("__weakref__", "_config", "_lock", "_ptr")
 
     def __init__(self, config: Config | None = None) -> None:
         self._lock = threading.Lock()
@@ -86,7 +89,7 @@ class ImageContext:
     def closed(self) -> bool:
         return self._ptr is None
 
-    def __enter__(self) -> ImageContext:
+    def __enter__(self) -> Self:
         self._live()
         return self
 
@@ -145,14 +148,19 @@ class ImageContext:
 
     @property
     def channels(self) -> int:
-        """3 for color, 1 for grayscale; an alpha channel is resolved at load and not kept."""
+        """3 for color, 1 for grayscale.
+
+        An alpha channel is resolved at load and not kept.
+        """
         return self._dimensions()[2]
 
     # --- Loading ---------------------------------------------------------------------
 
     def load(self, source: Source) -> None:
-        """Load whatever ``source`` is: a path, encoded bytes, a binary file object, an
-        array of pixels or a Pillow image. Bytes are always the encoded file, never a path.
+        """Load whatever ``source`` is.
+
+        ``source`` is a path, encoded bytes, a binary file object, an array of pixels or
+        a Pillow image. Bytes are always the encoded file, never a path.
         """
         if isinstance(source, (str, os.PathLike)):
             self.load_file(source)
@@ -164,7 +172,7 @@ class ImageContext:
             else:
                 self.load_bytes(source)
         elif is_pil_image(source):
-            self.load_pil(cast(PILImage, source))
+            self.load_pil(cast("PILImage", source))
         elif isinstance(source, SupportsArrayInterface):
             self.load_pixels(source)
         elif callable(getattr(source, "read", None)):
@@ -217,22 +225,30 @@ class ImageContext:
                 raise make_error(code, detail=self._last_message(ptr))
 
     def load_fileobj(self, fileobj: SupportsRead) -> None:
-        """Read a binary file object (an open file, ``io.BytesIO``, a response body) to
-        its end and load the bytes."""
+        """Read a binary file object to its end and load the bytes.
+
+        The object is an open file, an ``io.BytesIO``, a response body or anything else
+        with a ``read()`` that returns bytes.
+        """
         self.load_bytes(_read_all(fileobj))
 
     def load_pixels(
         self, pixels: PixelArray, channel_order: ChannelOrder = "rgb"
     ) -> None:
-        """Load decoded pixels: an 8-bit array of shape (h, w), (h, w, 1), (h, w, 3) or
-        (h, w, 4), e.g. a numpy ``uint8`` array. ``channel_order="bgr"`` reads OpenCV's
-        order. The pixels are copied into the context, and no EXIF orientation applies.
-        On failure the previously loaded image stays loaded.
+        """Load decoded pixels.
+
+        ``pixels`` is an 8-bit array of shape (h, w), (h, w, 1), (h, w, 3) or (h, w, 4),
+        e.g. a numpy ``uint8`` array. ``channel_order="bgr"`` reads OpenCV's order. The
+        pixels are copied into the context, and no EXIF orientation applies. On failure
+        the previously loaded image stays loaded.
         """
         self._load_pixels(pixels_from_array(pixels, channel_order))
 
     def load_pil(self, image: PILImage) -> None:
-        """Load a Pillow image (see :func:`pixels_from_pil` for how each mode is read)."""
+        """Load a Pillow image.
+
+        :func:`pixels_from_pil` describes how each mode is read.
+        """
         self._load_pixels(pixels_from_pil(image))
 
     def _load_pixels(self, px: Pixels) -> None:
@@ -262,8 +278,11 @@ class ImageContext:
     def hash(self, algorithm: AlgorithmLike) -> int | Digest: ...
 
     def hash(self, algorithm: AlgorithmLike = Algorithm.PHASH) -> int | Digest:
-        """Compute one hash of the loaded image: an ``int`` for aHash, dHash, pHash and
-        wHash, a :class:`Digest` for the others."""
+        """Compute one hash of the loaded image.
+
+        Returns an ``int`` for aHash, dHash, pHash and wHash, a :class:`Digest` for the
+        others.
+        """
         algo = to_algorithm(algorithm)
         compute = _UINT64_COMPUTE.get(algo)
         with self._lock:
@@ -280,12 +299,15 @@ class ImageContext:
                 raise make_error(code, context=f"computing {algo}")
         return digest_from_c(digest)
 
-    def hashes(self, *algorithms: AlgorithmLike) -> dict[Algorithm, Union[int, Digest]]:
-        """Compute several hashes at once. The 64-bit ones share their work on the full
-        image (one ``ph_compute_multi`` call); digests are computed one by one."""
+    def hashes(self, *algorithms: AlgorithmLike) -> dict[Algorithm, int | Digest]:
+        """Compute several hashes at once.
+
+        The 64-bit ones share their work on the full image (one ``ph_compute_multi``
+        call); digests are computed one by one.
+        """
         algos = [to_algorithm(a) for a in algorithms] or [Algorithm.PHASH]
         uint64 = sorted({a for a in algos if a in _UINT64_COMPUTE})
-        result: dict[Algorithm, Union[int, Digest]] = {}
+        result: dict[Algorithm, int | Digest] = {}
         if uint64:
             out = ffi.new("uint64_t[]", len(uint64))
             with self._lock:
@@ -306,15 +328,21 @@ class ImageContext:
         return self.hash(Algorithm.AHASH)
 
     def dhash(self) -> int:
-        """Difference hash: horizontal neighbor comparisons in a 9x8 grayscale reduction."""
+        """Difference hash: horizontal neighbor comparisons in a 9x8 reduction."""
         return self.hash(Algorithm.DHASH)
 
     def phash(self) -> int:
-        """Perceptual hash: the low-frequency DCT block of a reduction, against its median."""
+        """Perceptual hash: the low-frequency DCT block of a reduction.
+
+        Each coefficient is compared with the block's median.
+        """
         return self.hash(Algorithm.PHASH)
 
     def whash(self) -> int:
-        """Wavelet hash: the low-frequency Haar band of a reduction, against its median."""
+        """Wavelet hash: the low-frequency Haar band of a reduction.
+
+        Each coefficient is compared with the band's median.
+        """
         return self.hash(Algorithm.WHASH)
 
     def bmh(self) -> Digest:
@@ -322,7 +350,10 @@ class ImageContext:
         return self.hash(Algorithm.BMH)
 
     def mhash(self) -> Digest:
-        """Marr-Hildreth hash: a Laplacian-of-Gaussian response, nine bits per window (BITS, 576 bits)."""
+        """Marr-Hildreth hash: a Laplacian-of-Gaussian response (BITS).
+
+        Nine bits per window, 576 bits in all.
+        """
         return self.hash(Algorithm.MHASH)
 
     def radial(self) -> Digest:
@@ -334,7 +365,10 @@ class ImageContext:
         return self.hash(Algorithm.COLOR_HASH)
 
     def color_moments(self) -> Digest:
-        """Color moments: mean, standard deviation and cube root of the third moment per channel (VECTOR16)."""
+        """Color moments per channel (VECTOR16).
+
+        The mean, the standard deviation and the cube root of the third moment.
+        """
         return self.hash(Algorithm.COLOR_MOMENTS)
 
 
@@ -347,11 +381,11 @@ def _config_or_default(config: object) -> Config:
 
 
 def _read_all(fileobj: SupportsRead) -> bytes | bytearray | memoryview:
-    data = cast(object, fileobj.read())  # checked: an untyped read() may return str
+    data = cast("object", fileobj.read())  # checked: an untyped read() may return str
     if isinstance(data, (bytes, bytearray)):
         return data
     if isinstance(data, memoryview):
-        return cast(memoryview, data)
+        return cast("memoryview", data)
     raise TypeError(
         f"{type(fileobj).__name__}.read() returned {type(data).__name__}, not bytes"
     )

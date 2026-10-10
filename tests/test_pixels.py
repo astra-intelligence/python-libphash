@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from conftest import data
 
 import libphash as ph
-from conftest import data
 
 np = pytest.importorskip("numpy")
 Image = pytest.importorskip("PIL.Image")

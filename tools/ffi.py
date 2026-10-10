@@ -13,8 +13,8 @@ from pathlib import Path
 from cffi import FFI
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from cdef import header_cdef  # noqa: E402
-from native import HEADER  # noqa: E402
+from cdef import header_cdef
+from native import HEADER
 
 # The batch callbacks: implemented in Python with @ffi.def_extern, so no executable
 # closure is created at run time (which ffi.callback would need).

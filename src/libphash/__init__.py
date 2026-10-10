@@ -12,7 +12,7 @@ reuses its buffers across images; :func:`hash_files` hashes many files on a thre
 
 from __future__ import annotations
 
-from typing import Any, Literal, Union, overload
+from typing import Any, Literal, overload
 
 from ._algorithms import Algorithm, AlgorithmLike, DigestKind, to_algorithm
 from ._batch import BatchResult, ProgressCallback, hash_buffers, hash_files
@@ -70,6 +70,8 @@ from .exceptions import (
 )
 
 __all__ = [
+    "PH_DIGEST_MAX_BYTES",
+    "RADIAL_PCC_THRESHOLD",
     "Algorithm",
     "AlgorithmLike",
     "AllocationError",
@@ -93,12 +95,10 @@ __all__ = [
     "ImageTooLargeError",
     "InvalidArgumentError",
     "NoStructureError",
-    "PH_DIGEST_MAX_BYTES",
     "PILImage",
     "PhashError",
     "PixelArray",
     "ProgressCallback",
-    "RADIAL_PCC_THRESHOLD",
     "RequiresColorError",
     "Source",
     "StrPath",
@@ -139,38 +139,48 @@ def hash(
 @overload
 def hash(
     source: Source, algorithm: AlgorithmLike, *, config: Config | None = ...
-) -> Union[int, Digest]: ...
+) -> int | Digest: ...
 
 
-def hash(  # noqa: A001 -- the module's main entry point; libphash.hash, never a bare import
+def hash(
     source: Source,
     algorithm: AlgorithmLike = Algorithm.PHASH,
     *,
     config: Config | None = None,
-) -> Union[int, Digest]:
-    """Hash one image: ``source`` is a path, encoded bytes, a binary file object, an
-    array of pixels or a Pillow image. Returns an ``int`` for aHash, dHash, pHash and
-    wHash, a :class:`Digest` for the others."""
+) -> int | Digest:
+    """Hash one image.
+
+    ``source`` is a path, encoded bytes, a binary file object, an array of pixels or a
+    Pillow image. Returns an ``int`` for aHash, dHash, pHash and wHash, a
+    :class:`Digest` for the others.
+    """
     with ImageContext(config) as ctx:
         ctx.load(source)
         return ctx.hash(algorithm)
 
 
 def libphash_version() -> str:
-    """Version of the bundled libphash (``"2.0.1"``): the first three numbers of
-    ``__version__``."""
+    """Return the version of the bundled libphash (``"2.0.1"``).
+
+    It is the first three numbers of ``__version__``.
+    """
     return str(ffi.string(lib.ph_version()).decode())
 
 
 def build_info() -> str:
-    """How the bundled libphash was built: version, decoders, threads, SIMD
-    (``"version=2.0.1 jpeg=libjpeg-turbo png=libpng ..."``)."""
+    """Return how the bundled libphash was built.
+
+    The string lists the version, decoders, threads and SIMD:
+    ``"version=2.0.1 jpeg=libjpeg-turbo png=libpng ..."``.
+    """
     return str(ffi.string(lib.ph_get_build_info()).decode())
 
 
 def can_decode(fmt: Literal["jpeg", "png", "webp"]) -> bool:
-    """Whether this build has a native decoder for the format. JPEG and PNG decode
-    without one too (through stb_image); WebP does not."""
+    """Return whether this build has a native decoder for the format.
+
+    JPEG and PNG decode without one too (through stb_image); WebP does not.
+    """
     checks: dict[str, Any] = {
         "jpeg": lib.ph_can_use_jpeg,
         "png": lib.ph_can_use_png,
@@ -184,9 +194,11 @@ def can_decode(fmt: Literal["jpeg", "png", "webp"]) -> bool:
 def digest_info(
     algorithm: AlgorithmLike, config: Config | None = None
 ) -> tuple[int, DigestKind]:
-    """Size in bytes and kind of the hashes ``algorithm`` produces with ``config``,
-    without an image: for sizing a database column, say. A 64-bit hash is 8 ``BITS``
-    bytes."""
+    """Return the size in bytes and the kind of the hashes ``algorithm`` produces.
+
+    No image is needed: the answer depends only on ``config``, which makes it fit for
+    sizing a database column, say. A 64-bit hash is 8 ``BITS`` bytes.
+    """
     algo = to_algorithm(algorithm)
     ctx = new_context()
     try:

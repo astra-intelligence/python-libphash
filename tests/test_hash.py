@@ -2,9 +2,9 @@ import io
 from pathlib import Path
 
 import pytest
+from conftest import data
 
 import libphash as ph
-from conftest import data
 from libphash._native import ffi, lib
 
 UINT64 = ["ahash", "dhash", "phash", "whash"]
@@ -24,12 +24,13 @@ def test_algorithm_names_come_from_the_c_library() -> None:
 @pytest.mark.parametrize("name", UINT64)
 def test_uint64_algorithms_return_int(photo: Path, name: str) -> None:
     value = ph.hash(photo, name)
-    assert isinstance(value, int) and 0 <= value < 2**64
+    assert isinstance(value, int)
+    assert 0 <= value < 2**64
     assert ph.hash(photo, ph.Algorithm[name.upper()]) == value
 
 
 @pytest.mark.parametrize(
-    "name,kind",
+    ("name", "kind"),
     [
         ("bmh", "BITS"),
         ("mhash", "BITS"),
@@ -76,7 +77,7 @@ def test_unsupported_source_type() -> None:
         ph.hash(12345)  # type: ignore[call-overload]  # an untyped caller's mistake
 
 
-def test_formats(photo: Path) -> None:
+def test_formats() -> None:
     for name in ("photo.png", "photo.webp", "photo.jpeg"):
         assert isinstance(ph.hash(data(name)), int)
 
@@ -118,5 +119,5 @@ def test_info() -> None:
     assert "mock=off" in ph.build_info()
     for fmt in ("jpeg", "png", "webp"):
         assert ph.can_decode(fmt) is True
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="fmt"):
         ph.can_decode("gif")  # type: ignore[arg-type]  # an untyped caller's mistake

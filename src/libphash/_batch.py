@@ -5,14 +5,26 @@ import signal
 import socket
 import threading
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
 from ._config import Config, apply_config, new_context
+from ._errors import PH_ERR_CANCELLED, PH_ERR_IO, PH_SUCCESS, check, make_error
 from ._native import ffi, lib
 from ._sources import READ_FILES_IN_PYTHON, StrPath, encode_path, read_file
-from ._errors import PH_ERR_CANCELLED, PH_ERR_IO, PH_SUCCESS, check, make_error
 from .exceptions import InvalidArgumentError, PhashError
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 #: Called as ``progress(done, total)`` after each finished item; returning ``False``
 #: stops the batch (items not yet started get BatchCancelledError).
@@ -25,15 +37,18 @@ _Algorithms = Union[AlgorithmLike, Iterable[AlgorithmLike]]
 
 @dataclass(frozen=True)
 class BatchResult(Generic[_S]):
-    """The outcome for one item of a batch: ``BatchResult[path type]`` from
-    :func:`hash_files`, ``BatchResult[int]`` (the buffer's index) from :func:`hash_buffers`."""
+    """The outcome for one item of a batch.
+
+    :func:`hash_files` gives ``BatchResult[path type]``, :func:`hash_buffers` gives
+    ``BatchResult[int]`` (the buffer's index).
+    """
 
     #: The path or buffer index the item was given as.
     source: _S
     #: The hashes by algorithm, or None if the item failed.
-    hashes: Optional[dict[Algorithm, int]]
+    hashes: dict[Algorithm, int] | None
     #: Why the item failed, or None.
-    error: Optional[PhashError]
+    error: PhashError | None
 
     @property
     def ok(self) -> bool:
@@ -50,11 +65,12 @@ def hash_files(
 ) -> list[BatchResult[_P]]:
     """Hash many image files on libphash's pool of threads.
 
-    Only the 64-bit algorithms (aHash, dHash, pHash, wHash) can be batched. A failed file
-    does not stop the batch: its result carries the error. ``threads=0`` uses one thread
-    per usable CPU, ``1`` runs on the calling thread. Each worker holds one decoded image
-    at a time, so peak memory grows with the thread count (bound it with ``threads`` or
-    ``Config.max_pixels``). Ctrl+C stops the batch and raises KeyboardInterrupt.
+    Only the 64-bit algorithms (aHash, dHash, pHash, wHash) can be batched. A failed
+    file does not stop the batch: its result carries the error. ``threads=0`` uses one
+    thread per usable CPU, ``1`` runs on the calling thread. Each worker holds one
+    decoded image at a time, so peak memory grows with the thread count (bound it with
+    ``threads`` or ``Config.max_pixels``). Ctrl+C stops the batch and raises
+    KeyboardInterrupt.
     """
     paths = list(paths)
     if READ_FILES_IN_PYTHON:
@@ -104,8 +120,8 @@ def _files_via_buffers(
 ) -> list[BatchResult[_P]]:
     """hash_files() where the binding reads the files (see READ_FILES_IN_PYTHON).
 
-    Files are read a chunk at a time, so that memory holds a few encoded files per worker
-    and not the whole batch.
+    Files are read a chunk at a time, so that memory holds a few encoded files per
+    worker and not the whole batch.
     """
     algos, _ = _algorithms(algorithms)
     workers = threads if threads > 0 else (os.cpu_count() or 1)
@@ -126,14 +142,12 @@ def _files_via_buffers(
                 if not content:
                     raise OSError(0, "empty file")
                 data.append(content)
-            except OSError as e:
+            except OSError as e:  # noqa: PERF203 -- each file fails on its own
                 failed[i] = make_error(PH_ERR_IO, detail=f"{e.strerror}: {p!s}", path=p)
                 data.append(b"\0")  # placeholder; its result is replaced below
         offset = start
 
-        def chunk_progress(
-            done: int, _total: int, offset: int = offset
-        ) -> Optional[bool]:
+        def chunk_progress(done: int, _total: int, offset: int = offset) -> bool | None:
             return progress(offset + done, total) if progress else None
 
         part_results = hash_buffers(
@@ -168,7 +182,7 @@ def _algorithms(algorithms: _Algorithms) -> tuple[list[Algorithm], int]:
 
 
 def _result(
-    source: _S, item: Any, algos: list[Algorithm], path: Optional[StrPath] = None
+    source: _S, item: Any, algos: list[Algorithm], path: StrPath | None = None
 ) -> BatchResult[_S]:
     status = int(item.status)
     if status != PH_SUCCESS:
@@ -206,7 +220,7 @@ class _Run:
         self.handle: Any = None
         self.options: Any = None
 
-    def __enter__(self) -> _Run:
+    def __enter__(self) -> Self:
         self.template = new_context()
         apply_config(self.config, self.template)
         self.options = ffi.new("ph_batch_options_t *")
@@ -312,9 +326,9 @@ def should_continue_callback(user_data: Any) -> int:
 
 
 @ffi.def_extern(name="_libphash_on_progress")
-def on_progress_callback(done: int, total: int, user_data: Any) -> None:
+def on_progress_callback(_done: int, _total: int, user_data: Any) -> None:
     try:
         run: _Run = ffi.from_handle(user_data)
         run.on_progress()
-    except BaseException:  # noqa: BLE001 -- a callback must not raise into C
+    except BaseException:  # noqa: BLE001, S110 -- a callback must not raise into C
         pass

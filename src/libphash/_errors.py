@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import errno
 import os
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from ._native import ffi, lib
 from .exceptions import (
@@ -21,7 +21,9 @@ from .exceptions import (
     RequiresColorError,
     UnsupportedFormatError,
 )
-from ._sources import StrPath
+
+if TYPE_CHECKING:
+    from ._sources import StrPath
 
 PH_SUCCESS = int(lib.PH_SUCCESS)
 PH_ERR_IO = int(lib.PH_ERR_IO)
@@ -58,18 +60,18 @@ _CLASSES: dict[int, type[PhashError]] = {
 
 
 def error_string(code: int) -> str:
-    """The C library's one-line description of a ``ph_error_t``."""
+    """Return the C library's one-line description of a ``ph_error_t``."""
     return str(ffi.string(lib.ph_get_error_string(code)).decode())
 
 
 def make_error(
-    code: int, *, context: str = "", detail: str = "", path: Optional[StrPath] = None
+    code: int, *, context: str = "", detail: str = "", path: StrPath | None = None
 ) -> PhashError:
     """Build the exception for a ``ph_error_t``.
 
     ``context`` says what the binding was doing ("computing phash"); ``detail`` is the C
-    library's message for a load, and is passed only by the load functions, the only ones
-    that write it.
+    library's message for a load, and is passed only by the load functions, the only
+    ones that write it.
     """
     cls = _CLASSES.get(code, PhashError)
     message = detail or error_string(code)
@@ -81,9 +83,9 @@ def make_error(
 
 
 def _io_error(
-    message: str, code: int, detail: str, path: Optional[StrPath]
+    message: str, code: int, detail: str, path: StrPath | None
 ) -> ImageIOError:
-    err: Optional[int] = None
+    err: int | None = None
     cls: type[ImageIOError] = ImageIOError
     if path is not None:
         # The C library reports every unusable path as PH_ERR_IO; the file system tells

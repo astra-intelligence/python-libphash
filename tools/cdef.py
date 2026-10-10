@@ -3,8 +3,8 @@
 ``libphash.h`` is the whole public API, so the binding declares exactly what the
 header declares instead of keeping a hand-written copy that drifts. The header is
 written for this: its only conditional blocks are the include guard, the
-``PH_API``/``PH_NODISCARD`` definitions and ``extern "C"`` under ``__cplusplus``. A full C
-preprocessor would need a compiler with ``-E`` on every platform (MSVC's differs), so
+``PH_API``/``PH_NODISCARD`` definitions and ``extern "C"`` under ``__cplusplus``. A full
+C preprocessor would need a compiler with ``-E`` on every platform (MSVC's differs), so
 this module handles that subset itself and fails loudly on anything outside it.
 
 Macros become cdef constants: an integer literal is declared as is (and substituted
@@ -16,7 +16,10 @@ String macros are left out: the version string comes from ``ph_version()``.
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _ATTRIBUTES = ("PH_API", "PH_NODISCARD")
 _INT_LITERAL = re.compile(r"^(0[xX][0-9a-fA-F]+|[0-9]+)[uUlL]*$")
@@ -42,7 +45,7 @@ class _Header:
         self.float_macros: list[str] = []
         self.declarations: list[str] = []
 
-    def read(self, path: Path) -> None:
+    def read(self, path: Path) -> None:  # noqa: PLR0912 -- a branch per directive
         guard: str | None = None
         # One entry per open conditional: True when its lines are C++-only and skipped.
         stack: list[bool] = []

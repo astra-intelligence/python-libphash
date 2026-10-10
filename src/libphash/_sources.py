@@ -1,4 +1,7 @@
-"""Turning what a caller has (a path, bytes, an array, a Pillow image) into C arguments."""
+"""Turning what a caller has into C arguments.
+
+A caller has a path, bytes, an array of pixels or a Pillow image.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +26,10 @@ class SupportsRead(Protocol):
 
 @runtime_checkable
 class SupportsArrayInterface(Protocol):
-    """An array exposing numpy's ``__array_interface__``: a numpy array, a Pillow image."""
+    """An array exposing numpy's ``__array_interface__``.
+
+    A numpy array is one, and so is a Pillow image.
+    """
 
     @property
     def __array_interface__(self) -> Mapping[str, Any]: ...
@@ -42,12 +48,12 @@ class PILImage(Protocol):
     def convert(self, mode: str) -> PILImage: ...
 
 
-#: Decoded 8-bit pixels of shape (h, w) or (h, w, 1|3|4): a numpy array or a memoryview.
+#: Decoded 8-bit pixels of shape (h, w) or (h, w, 1|3|4): a numpy array, a memoryview.
 PixelArray = Union[SupportsArrayInterface, memoryview]
 
-#: Everything :func:`libphash.hash` and :meth:`ImageContext.load` accept: a path, encoded
-#: bytes, a binary file object, an array of pixels or a Pillow image. ``bytes`` are
-#: always encoded image data, never a path.
+#: Everything :func:`libphash.hash` and :meth:`ImageContext.load` accept: a path,
+#: encoded bytes, a binary file object, an array of pixels or a Pillow image. ``bytes``
+#: are always encoded image data, never a path.
 Source = Union[
     str,
     "os.PathLike[str]",
@@ -66,7 +72,10 @@ READ_FILES_IN_PYTHON = sys.platform == "win32"
 
 
 def encode_path(path: StrPath) -> bytes:
-    """The path as the bytes the C library gets: the file system encoding, unchanged on POSIX."""
+    """Return the path as the bytes the C library gets.
+
+    They are the file system encoding of the path: on POSIX, the path's bytes unchanged.
+    """
     try:
         return os.fsencode(path)
     except TypeError:
@@ -84,7 +93,10 @@ def is_pil_image(obj: object) -> bool:
 
 @dataclass
 class Pixels:
-    """Arguments for ph_load_from_pixels(), with whatever must stay alive during the call."""
+    """Arguments for ph_load_from_pixels().
+
+    ``keepalive`` holds whatever must stay alive during the call.
+    """
 
     pointer: Any
     width: int
@@ -95,11 +107,11 @@ class Pixels:
 
 
 def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> Pixels:
-    """Pixels of an 8-bit array of shape (h, w) or (h, w, 1|3|4).
+    """Read the pixels of an 8-bit array of shape (h, w) or (h, w, 1|3|4).
 
     A numpy array whose rows are spaced apart (a crop, ``arr[10:-10, 5:-5]``) is passed
-    without a copy, its row step as the C stride; one with gaps or reversed order inside a
-    row, or in BGR order, is copied once.
+    without a copy, its row step as the C stride; one with gaps or reversed order inside
+    a row, or in BGR order, is copied once.
     """
     if channel_order not in ("rgb", "bgr"):
         raise ValueError(f"channel_order must be 'rgb' or 'bgr', got {channel_order!r}")
@@ -108,10 +120,11 @@ def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> P
         return _from_array_interface(obj, iface, channel_order)
     try:
         # Any object with the buffer protocol and a shape, beyond what PixelArray names.
-        view = obj if isinstance(obj, memoryview) else memoryview(cast(Any, obj))
+        view = obj if isinstance(obj, memoryview) else memoryview(cast("Any", obj))
     except TypeError:
         raise TypeError(
-            f"expected an array of pixels (numpy, memoryview with a shape), got {type(obj).__name__}"
+            "expected an array of pixels (numpy, memoryview with a shape), "
+            f"got {type(obj).__name__}"
         ) from None
     if view.format not in ("B", "c") or view.itemsize != 1:
         raise TypeError(
@@ -131,7 +144,8 @@ def _from_array_interface(
     typestr = iface.get("typestr", "")
     if typestr[1:] != "u1":
         raise TypeError(
-            f"pixels must be uint8, got typestr {typestr!r}; convert the array to uint8 first"
+            f"pixels must be uint8, got typestr {typestr!r}; "
+            "convert the array to uint8 first"
         )
     height, width, channels = _shape(tuple(iface["shape"]))
     strides = iface.get("strides")
@@ -152,7 +166,7 @@ def _from_array_interface(
         return Pixels(pointer, width, height, channels, row, obj)
     # Any other layout: one C-ordered copy through the buffer protocol.
     try:
-        packed = memoryview(cast(Any, obj)).tobytes()
+        packed = memoryview(cast("Any", obj)).tobytes()
     except TypeError:
         raise TypeError(
             "the array does not expose its data through the buffer protocol"
@@ -190,7 +204,7 @@ _PIL_UNSUPPORTED = ("I", "I;16", "I;16B", "I;16L", "I;16N", "F")
 
 
 def pixels_from_pil(img: PILImage) -> Pixels:
-    """Pixels of a Pillow image.
+    """Read the pixels of a Pillow image.
 
     ``L``, ``RGB`` and ``RGBA`` are read as they are. ``1`` becomes ``L``; palette and
     gray-with-alpha images become ``RGBA`` (``RGB`` when they carry no transparency);
@@ -202,7 +216,8 @@ def pixels_from_pil(img: PILImage) -> Pixels:
     mode = img.mode
     if mode in _PIL_UNSUPPORTED:
         raise TypeError(
-            f"Pillow mode {mode!r} is not 8-bit; convert it (img.convert('L') or 'RGB') first"
+            f"Pillow mode {mode!r} is not 8-bit; "
+            "convert it (img.convert('L') or 'RGB') first"
         )
     if mode not in _PIL_DIRECT:
         if mode == "1":

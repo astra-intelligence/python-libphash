@@ -8,18 +8,20 @@ from libphash._native import lib
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
-from cdef import header_functions  # noqa: E402
+from cdef import header_functions  # noqa: E402 -- tools/ joins sys.path just above
 
 HEADER = ROOT / "native" / "libphash" / "include" / "libphash.h"
 PACKAGE = ROOT / "src" / "libphash"
 
+_VIA_DIGEST = "ph_compute_digest computes every digest algorithm"
+
 #: Functions the binding deliberately does not call, and why.
 NOT_WRAPPED = {
-    "ph_compute_bmh": "ph_compute_digest computes every digest algorithm",
-    "ph_compute_color_hash": "ph_compute_digest computes every digest algorithm",
-    "ph_compute_color_moments_hash": "ph_compute_digest computes every digest algorithm",
-    "ph_compute_mhash": "ph_compute_digest computes every digest algorithm",
-    "ph_compute_radial_hash": "ph_compute_digest computes every digest algorithm",
+    "ph_compute_bmh": _VIA_DIGEST,
+    "ph_compute_color_hash": _VIA_DIGEST,
+    "ph_compute_color_moments_hash": _VIA_DIGEST,
+    "ph_compute_mhash": _VIA_DIGEST,
+    "ph_compute_radial_hash": _VIA_DIGEST,
     "ph_hash_files": "ph_hash_files_ex with default options is the same call",
     "ph_hash_buffers": "ph_hash_buffers_ex with default options is the same call",
     "ph_context_get_gray_weights": "Config holds the weights it sets",

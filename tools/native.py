@@ -7,9 +7,11 @@ compiler flags, the x86-64 baseline, FP contraction), so a wheel carries the sam
 library that libphash's CI tests.
 
 Environment:
-  LIBPHASH_BUILD_DIR   where the CMake build and install go (default: build/libphash-<platform>)
+  LIBPHASH_BUILD_DIR   where the CMake build and install go
+                       (default: build/libphash-<platform>)
   LIBPHASH_CMAKE_ARGS  extra arguments for the CMake configure step
-  ARCHFLAGS            on macOS, the target architecture (``-arch x86_64``), as cibuildwheel sets it
+  ARCHFLAGS            on macOS, the target architecture (``-arch x86_64``), as
+                       cibuildwheel sets it
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ import subprocess
 import sys
 import sysconfig
 from pathlib import Path
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 NATIVE_DIR = PROJECT_ROOT / "native" / "libphash"
@@ -48,8 +50,8 @@ def _cmake() -> str:
     cmake = shutil.which("cmake")
     if cmake is None:
         sys.exit(
-            "python-libphash: building from source needs CMake >= 3.21 and a C compiler; "
-            "`pip install cmake` provides CMake."
+            "python-libphash: building from source needs CMake >= 3.21 and a C "
+            "compiler; `pip install cmake` provides CMake."
         )
     return cmake
 
@@ -122,15 +124,14 @@ class LinkArguments(TypedDict):
     """The ``setuptools.Extension`` fields that link libphash."""
 
     include_dirs: list[str]
-    define_macros: list[tuple[str, Optional[str]]]
+    define_macros: list[tuple[str, str | None]]
     extra_objects: list[str]
     libraries: list[str]
     extra_link_args: list[str]
 
 
-def link_arguments(prefix: Path) -> LinkArguments:
-    """Read ``libphash.pc`` from the install prefix into ``Extension`` arguments."""
-    pc = next(prefix.glob("lib*/pkgconfig/libphash.pc"))
+def _read_pc(pc: Path) -> dict[str, str]:
+    """Return the fields of a pkg-config file (``Cflags``, ``Libs``, …), expanded."""
     variables = {"pcfiledir": str(pc.parent)}
     fields: dict[str, str] = {}
     for line in pc.read_text(encoding="utf-8").splitlines():
@@ -141,7 +142,12 @@ def link_arguments(prefix: Path) -> LinkArguments:
         elif ":" in expanded:
             key, _, value = expanded.partition(":")
             fields[key.strip()] = value.strip()
+    return fields
 
+
+def link_arguments(prefix: Path) -> LinkArguments:
+    """Read ``libphash.pc`` from the install prefix into ``Extension`` arguments."""
+    fields = _read_pc(next(prefix.glob("lib*/pkgconfig/libphash.pc")))
     args: LinkArguments = {
         "include_dirs": [],
         "define_macros": [],

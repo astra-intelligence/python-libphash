@@ -21,7 +21,10 @@ The project is developed with [uv](https://docs.astral.sh/uv/) (`.python-version
 git submodule update --init --recursive   # libphash and its vendored decoders
 uv sync --all-extras --inexact            # builds the extension in editable mode
 uv run pytest                             # tests in tests/, fixtures from native/libphash/tests/data
-uv run ruff check . && uv run mypy && uv run basedpyright   # both strict, over src/, tests/, tools/
+uv run ruff check . && uv run ruff format --check .
+uv run mypy && uv run basedpyright                         # both strict, over src/, tests/, tools/
+uv run python -m mypy.stubtest libphash._native            # the stub of the generated module
+uv run typos
 uv build                                  # sdist + wheel into dist/
 ```
 
@@ -53,6 +56,7 @@ The public API is what `src/libphash/__init__.py` exports; every other module is
 - **`_native.pyi`** — stub for the generated `ffi`/`lib`; **`py.typed`** marks the package as typed.
 
 Typing: the package passes mypy and basedpyright in strict mode, and every type a caller needs to annotate their own code (`Source`, `StrPath`, `PixelArray`, `AlgorithmLike`, the `Config` literals, the protocols) is exported from `libphash`. Public signatures use protocols, not `Any`. A runtime check of an argument for untyped callers takes it as `object`, so neither checker calls the check unnecessary.
+Lint: ruff with a broad rule set and pep257 docstrings (`pyproject.toml`); every exception to a rule is a per-file ignore with a comment or a `# noqa: CODE -- reason`, never a bare `noqa`.
 - **`tests/`** — pytest suite (`test_cdef.py` fails when a header function is neither wrapped nor listed as deliberately unwrapped); **`benchmarks/`** — speed and quality comparison with ImageHash (datasets in `benchmarks/data/`, not tracked).
 - **`.github/workflows/`** — CI; wheels are built with cibuildwheel (configuration in `pyproject.toml`).
 

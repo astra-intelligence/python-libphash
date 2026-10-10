@@ -2,8 +2,8 @@
 
 Every failure of the C library becomes a subclass of :class:`PhashError`, chosen by its
 ``ph_error_t`` code. The classes also derive from the built-in exception a Python
-programmer would reach for: an unreadable file is an :class:`OSError` (with ``errno``, so
-``except FileNotFoundError`` works), a bad argument a :class:`ValueError`, a failed
+programmer would reach for: an unreadable file is an :class:`OSError` (with ``errno``,
+so ``except FileNotFoundError`` works), a bad argument a :class:`ValueError`, a failed
 allocation a :class:`MemoryError`.
 """
 
@@ -14,20 +14,20 @@ from typing import Any
 from ._native import lib
 
 __all__ = [
-    "PhashError",
-    "ImageIOError",
-    "DecodeError",
-    "UnsupportedFormatError",
+    "AllocationError",
+    "BatchCancelledError",
     "CorruptDataError",
+    "DecodeError",
     "DecoderUnavailableError",
+    "DigestKindError",
+    "EmptyImageError",
+    "ImageIOError",
     "ImageTooLargeError",
     "InvalidArgumentError",
-    "AllocationError",
-    "EmptyImageError",
-    "RequiresColorError",
     "NoStructureError",
-    "BatchCancelledError",
-    "DigestKindError",
+    "PhashError",
+    "RequiresColorError",
+    "UnsupportedFormatError",
 ]
 
 
@@ -86,7 +86,7 @@ class ImageIOError(PhashError, OSError):
         )
 
 
-def _rebuild_io(
+def _rebuild_io(  # noqa: PLR0913 -- one argument per pickled field
     cls: type[ImageIOError],
     message: str,
     code: int,
@@ -118,7 +118,7 @@ class DecoderUnavailableError(DecodeError):
 
 
 class ImageTooLargeError(DecodeError):
-    """The image has more pixels than ``Config.max_pixels`` or the library's fixed limit."""
+    """The image is larger than ``Config.max_pixels`` or the library's fixed limits."""
 
 
 class InvalidArgumentError(PhashError, ValueError):

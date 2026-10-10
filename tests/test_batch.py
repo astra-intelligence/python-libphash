@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import os
 import signal
 import sys
 import threading
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+from conftest import data
 
 import libphash as ph
-from conftest import data
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def paths() -> list[Path]:
@@ -49,7 +54,8 @@ def test_failed_items_carry_their_error(tmp_path: Path) -> None:
     bad.write_bytes(b"junk")
     results = ph.hash_files([data("photo.jpeg"), tmp_path / "missing.jpg", bad])
     assert results[0].ok
-    assert isinstance(results[1].error, FileNotFoundError) and results[1].hashes is None
+    assert isinstance(results[1].error, FileNotFoundError)
+    assert results[1].hashes is None
     assert "missing.jpg" in str(results[1].error)
     assert repr(results[1].error).startswith("ImageIOError(")
     assert isinstance(results[2].error, ph.UnsupportedFormatError)
@@ -82,13 +88,13 @@ def test_progress_counts_to_total() -> None:
 
 
 def test_progress_returning_false_cancels() -> None:
-    results = ph.hash_files(paths() * 10, threads=1, progress=lambda d, t: d < 3)
+    results = ph.hash_files(paths() * 10, threads=1, progress=lambda d, _t: d < 3)
     assert sum(r.ok for r in results) == 3
     assert all(isinstance(r.error, ph.BatchCancelledError) for r in results[3:])
 
 
 def test_exception_in_progress_propagates() -> None:
-    def boom(done: int, total: int) -> None:
+    def boom(_done: int, _total: int) -> None:
         raise RuntimeError("from progress")
 
     with pytest.raises(RuntimeError, match="from progress"):
@@ -102,7 +108,7 @@ def test_ctrl_c_stops_the_batch() -> None:
     big = [data("photo_large.jpeg")] * 2000
     done: list[int] = []
 
-    def interrupt_once_started(d: int, t: int) -> None:
+    def interrupt_once_started(d: int, _t: int) -> None:
         done.append(d)
         if d == 5:
             threading.Thread(target=os.kill, args=(os.getpid(), signal.SIGINT)).start()
