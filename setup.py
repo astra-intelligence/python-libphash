@@ -18,8 +18,11 @@ class BuildExt(build_ext):
     def run(self) -> None:
         args = link_arguments(build_libphash())
         for ext in self.extensions:
-            for key, values in args.items():
-                getattr(ext, key).extend(values)
+            ext.include_dirs.extend(args["include_dirs"])
+            ext.define_macros.extend(args["define_macros"])
+            ext.extra_objects.extend(args["extra_objects"])
+            ext.libraries.extend(args["libraries"])
+            ext.extra_link_args.extend(args["extra_link_args"])
         super().run()
 
 

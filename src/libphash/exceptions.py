@@ -9,11 +9,9 @@ allocation a :class:`MemoryError`.
 
 from __future__ import annotations
 
-import errno as _errno
-import os
 from typing import Any
 
-from ._native import ffi, lib
+from ._native import lib
 
 __all__ = [
     "PhashError",
@@ -103,18 +101,6 @@ def _rebuild_io(
     return exc
 
 
-class _FileNotFound(ImageIOError, FileNotFoundError):
-    pass
-
-
-class _PermissionDenied(ImageIOError, PermissionError):
-    pass
-
-
-class _IsADirectory(ImageIOError, IsADirectoryError):
-    pass
-
-
 class DecodeError(PhashError):
     """The data could not be decoded into an image. Parent of the four reasons below."""
 
@@ -163,79 +149,8 @@ class DigestKindError(PhashError, TypeError):
     """Two digests were compared by a metric their kind does not support."""
 
 
-def _code(name: str) -> int:
-    return int(getattr(lib, name))
-
-
-_CLASSES: dict[int, type[PhashError]] = {
-    _code("PH_ERR_ALLOCATION_FAILED"): AllocationError,
-    _code("PH_ERR_INVALID_ARGUMENT"): InvalidArgumentError,
-    _code("PH_ERR_EMPTY_IMAGE"): EmptyImageError,
-    _code("PH_ERR_IMAGE_TOO_LARGE"): ImageTooLargeError,
-    _code("PH_ERR_UNSUPPORTED_FORMAT"): UnsupportedFormatError,
-    _code("PH_ERR_CORRUPT_DATA"): CorruptDataError,
-    _code("PH_ERR_DECODER_UNAVAILABLE"): DecoderUnavailableError,
-    _code("PH_ERR_IO"): ImageIOError,
-    _code("PH_ERR_REQUIRES_COLOR"): RequiresColorError,
-    _code("PH_ERR_CANCELLED"): BatchCancelledError,
-    _code("PH_ERR_NO_STRUCTURE"): NoStructureError,
-}
-
 _CODE_NAMES: dict[int, str] = {
     int(getattr(lib, name)): name
     for name in dir(lib)
     if name.startswith("PH_ERR_") and not name.endswith("_")
 }
-
-PH_SUCCESS = int(lib.PH_SUCCESS)
-PH_ERR_IO = int(lib.PH_ERR_IO)
-
-
-def error_string(code: int) -> str:
-    return str(ffi.string(lib.ph_get_error_string(code)).decode())
-
-
-def make_error(
-    code: int, *, context: str = "", detail: str = "", path: Any = None
-) -> PhashError:
-    """Build the exception for a ``ph_error_t``.
-
-    ``context`` says what the binding was doing ("computing phash"); ``detail`` is the C
-    library's message for a load, and is passed only by the load functions, the only ones
-    that write it.
-    """
-    cls = _CLASSES.get(code, PhashError)
-    text = error_string(code)
-    message = detail or text
-    if context:
-        message = f"{context}: {message}"
-    if cls is ImageIOError:
-        return _io_error(message, code, detail, path)
-    return cls(message, code=code, detail=detail)
-
-
-def _io_error(message: str, code: int, detail: str, path: Any) -> ImageIOError:
-    err: int | None = None
-    cls: type[ImageIOError] = ImageIOError
-    if path is not None:
-        # The C library reports every unusable path as PH_ERR_IO; the file system tells
-        # which OSError it is.
-        try:
-            if os.path.isdir(path):
-                err, cls = _errno.EISDIR, _IsADirectory
-            elif not os.path.lexists(path) or not os.path.exists(path):
-                err, cls = _errno.ENOENT, _FileNotFound
-            elif not os.access(path, os.R_OK):
-                err, cls = _errno.EACCES, _PermissionDenied
-        except (OSError, ValueError):
-            pass
-    exc = cls(message, code=code, detail=detail)
-    exc.errno = err
-    exc.filename = os.fsdecode(path) if path is not None else None
-    return exc
-
-
-def check(code: int, *, context: str = "") -> None:
-    """Raise the exception for ``code`` unless it is ``PH_SUCCESS``."""
-    if code != PH_SUCCESS:
-        raise make_error(code, context=context)

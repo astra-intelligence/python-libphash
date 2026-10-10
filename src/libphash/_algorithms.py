@@ -4,7 +4,8 @@ from enum import IntEnum
 from typing import Union
 
 from ._native import ffi, lib
-from .exceptions import InvalidArgumentError, PH_SUCCESS
+from ._errors import PH_SUCCESS
+from .exceptions import InvalidArgumentError
 
 
 class Algorithm(IntEnum):
@@ -50,7 +51,7 @@ UINT64_ALGORITHMS = frozenset(
 )
 
 
-def to_algorithm(value: AlgorithmLike) -> Algorithm:
+def to_algorithm(value: object) -> Algorithm:
     if isinstance(value, Algorithm):
         return value
     if isinstance(value, str):

@@ -2,6 +2,7 @@ import copy
 import gc
 import pickle
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +10,7 @@ import libphash as ph
 from conftest import data
 
 
-def test_close_is_idempotent_and_use_after_close_raises(photo) -> None:
+def test_close_is_idempotent_and_use_after_close_raises(photo: Path) -> None:
     ctx = ph.ImageContext()
     ctx.load_file(photo)
     ctx.close()
@@ -21,7 +22,7 @@ def test_close_is_idempotent_and_use_after_close_raises(photo) -> None:
     assert repr(ctx) == "<ImageContext closed>"
 
 
-def test_context_manager(photo) -> None:
+def test_context_manager(photo: Path) -> None:
     with ph.ImageContext() as ctx:
         assert repr(ctx) == "<ImageContext empty>"
         ctx.load_file(photo)
@@ -29,7 +30,7 @@ def test_context_manager(photo) -> None:
     assert ctx.closed
 
 
-def test_unclosed_contexts_are_freed(photo) -> None:
+def test_unclosed_contexts_are_freed(photo: Path) -> None:
     for _ in range(2000):
         ph.ImageContext().load_file(photo)
     gc.collect()
@@ -42,7 +43,7 @@ def test_cannot_pickle_or_copy() -> None:
             op(ctx)
 
 
-def test_dimensions_and_state(photo) -> None:
+def test_dimensions_and_state(photo: Path) -> None:
     with ph.ImageContext() as ctx:
         assert not ctx.is_loaded and (ctx.width, ctx.height, ctx.channels) == (0, 0, 0)
         ctx.load_file(photo)
@@ -52,7 +53,7 @@ def test_dimensions_and_state(photo) -> None:
         assert ctx.channels == 1
 
 
-def test_failed_file_load_leaves_no_image(photo) -> None:
+def test_failed_file_load_leaves_no_image(photo: Path) -> None:
     with ph.ImageContext() as ctx:
         ctx.load_file(photo)
         with pytest.raises(ph.DecodeError):
@@ -62,7 +63,7 @@ def test_failed_file_load_leaves_no_image(photo) -> None:
             ctx.phash()
 
 
-def test_failed_pixel_load_keeps_the_previous_image(photo) -> None:
+def test_failed_pixel_load_keeps_the_previous_image(photo: Path) -> None:
     with ph.ImageContext(ph.Config(max_pixels=500 * 500)) as ctx:
         ctx.load_file(photo)
         before = ctx.phash()
@@ -71,7 +72,7 @@ def test_failed_pixel_load_keeps_the_previous_image(photo) -> None:
         assert ctx.phash() == before
 
 
-def test_context_is_reusable_across_images(photo) -> None:
+def test_context_is_reusable_across_images(photo: Path) -> None:
     other = data("photo.png")
     with ph.ImageContext() as ctx:
         ctx.load_file(photo)
@@ -82,7 +83,7 @@ def test_context_is_reusable_across_images(photo) -> None:
         assert ctx.phash() == a
 
 
-def test_one_context_shared_by_threads(photo) -> None:
+def test_one_context_shared_by_threads(photo: Path) -> None:
     paths = [photo, data("photo.png"), data("photo_rotated_90.jpeg")]
     expected = {p: ph.hash(p, "radial") for p in paths}
     ctx = ph.ImageContext()
@@ -108,7 +109,7 @@ def test_one_context_shared_by_threads(photo) -> None:
     ctx.close()
 
 
-def test_own_context_per_thread_matches_sequential(photo) -> None:
+def test_own_context_per_thread_matches_sequential(photo: Path) -> None:
     paths = [
         photo,
         data("photo.png"),
@@ -116,11 +117,11 @@ def test_own_context_per_thread_matches_sequential(photo) -> None:
         data("photo_copy.jpeg"),
     ]
     expected = [ph.hash(p, "mhash") for p in paths]
-    results: dict[int, list] = {}
+    results: dict[int, list[ph.Digest]] = {}
 
     def work(i: int) -> None:
         with ph.ImageContext() as ctx:
-            out = []
+            out: list[ph.Digest] = []
             for p in paths * 5:
                 ctx.load_file(p)
                 out.append(ctx.mhash())

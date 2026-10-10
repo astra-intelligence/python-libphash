@@ -22,6 +22,7 @@ import subprocess
 import sys
 import sysconfig
 from pathlib import Path
+from typing import Optional, TypedDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 NATIVE_DIR = PROJECT_ROOT / "native" / "libphash"
@@ -117,7 +118,17 @@ def build_libphash() -> Path:
     return prefix
 
 
-def link_arguments(prefix: Path) -> dict[str, list]:
+class LinkArguments(TypedDict):
+    """The ``setuptools.Extension`` fields that link libphash."""
+
+    include_dirs: list[str]
+    define_macros: list[tuple[str, Optional[str]]]
+    extra_objects: list[str]
+    libraries: list[str]
+    extra_link_args: list[str]
+
+
+def link_arguments(prefix: Path) -> LinkArguments:
     """Read ``libphash.pc`` from the install prefix into ``Extension`` arguments."""
     pc = next(prefix.glob("lib*/pkgconfig/libphash.pc"))
     variables = {"pcfiledir": str(pc.parent)}
@@ -131,7 +142,7 @@ def link_arguments(prefix: Path) -> dict[str, list]:
             key, _, value = expanded.partition(":")
             fields[key.strip()] = value.strip()
 
-    args: dict[str, list] = {
+    args: LinkArguments = {
         "include_dirs": [],
         "define_macros": [],
         "extra_objects": [],

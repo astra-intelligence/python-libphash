@@ -5,34 +5,31 @@ import signal
 import socket
 import threading
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Optional, Sequence
+from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, Union
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
-from ._config import Config, _new_context
+from ._config import Config, apply_config, new_context
 from ._native import ffi, lib
 from ._sources import READ_FILES_IN_PYTHON, StrPath, encode_path, read_file
-from .exceptions import (
-    InvalidArgumentError,
-    PhashError,
-    PH_ERR_IO,
-    PH_SUCCESS,
-    check,
-    make_error,
-)
+from ._errors import PH_ERR_CANCELLED, PH_ERR_IO, PH_SUCCESS, check, make_error
+from .exceptions import InvalidArgumentError, PhashError
 
 #: Called as ``progress(done, total)`` after each finished item; returning ``False``
 #: stops the batch (items not yet started get BatchCancelledError).
 ProgressCallback = Callable[[int, int], Optional[bool]]
 
-_PH_ERR_CANCELLED = int(lib.PH_ERR_CANCELLED)
+_S = TypeVar("_S")
+_P = TypeVar("_P", bound=StrPath)
+_Algorithms = Union[AlgorithmLike, Iterable[AlgorithmLike]]
 
 
 @dataclass(frozen=True)
-class BatchResult:
-    """The outcome for one item of a batch."""
+class BatchResult(Generic[_S]):
+    """The outcome for one item of a batch: ``BatchResult[path type]`` from
+    :func:`hash_files`, ``BatchResult[int]`` (the buffer's index) from :func:`hash_buffers`."""
 
     #: The path or buffer index the item was given as.
-    source: Any
+    source: _S
     #: The hashes by algorithm, or None if the item failed.
     hashes: Optional[dict[Algorithm, int]]
     #: Why the item failed, or None.
@@ -44,13 +41,13 @@ class BatchResult:
 
 
 def hash_files(
-    paths: Iterable[StrPath],
-    algorithms: Sequence[AlgorithmLike] = (Algorithm.PHASH,),
+    paths: Iterable[_P],
+    algorithms: _Algorithms = (Algorithm.PHASH,),
     *,
     config: Config | None = None,
     threads: int = 0,
     progress: ProgressCallback | None = None,
-) -> list[BatchResult]:
+) -> list[BatchResult[_P]]:
     """Hash many image files on libphash's pool of threads.
 
     Only the 64-bit algorithms (aHash, dHash, pHash, wHash) can be batched. A failed file
@@ -75,12 +72,12 @@ def hash_files(
 
 def hash_buffers(
     buffers: Iterable[bytes | bytearray | memoryview],
-    algorithms: Sequence[AlgorithmLike] = (Algorithm.PHASH,),
+    algorithms: _Algorithms = (Algorithm.PHASH,),
     *,
     config: Config | None = None,
     threads: int = 0,
     progress: ProgressCallback | None = None,
-) -> list[BatchResult]:
+) -> list[BatchResult[int]]:
     """Hash many encoded images held in memory; see :func:`hash_files`.
 
     ``BatchResult.source`` is the buffer's index. The buffers must not change while the
@@ -99,12 +96,12 @@ def hash_buffers(
 
 
 def _files_via_buffers(
-    paths: list[StrPath],
-    algorithms: Sequence[AlgorithmLike],
+    paths: list[_P],
+    algorithms: _Algorithms,
     config: Config | None,
     threads: int,
     progress: ProgressCallback | None,
-) -> list[BatchResult]:
+) -> list[BatchResult[_P]]:
     """hash_files() where the binding reads the files (see READ_FILES_IN_PYTHON).
 
     Files are read a chunk at a time, so that memory holds a few encoded files per worker
@@ -114,7 +111,7 @@ def _files_via_buffers(
     workers = threads if threads > 0 else (os.cpu_count() or 1)
     chunk = max(64, 4 * workers)
     total = len(paths)
-    results: list[BatchResult] = []
+    results: list[BatchResult[_P]] = []
     stopped = False
     for start in range(0, total, chunk):
         part = paths[start : start + chunk]
@@ -151,30 +148,33 @@ def _files_via_buffers(
                 results.append(BatchResult(p, None, failed[i]))
             else:
                 results.append(BatchResult(p, r.hashes, r.error))
-            if r.error is not None and r.error.code == _PH_ERR_CANCELLED:
+            if r.error is not None and r.error.code == PH_ERR_CANCELLED:
                 stopped = True
     return results
 
 
-def _cancelled(source: Any) -> BatchResult:
-    return BatchResult(source, None, make_error(_PH_ERR_CANCELLED))
+def _cancelled(source: _S) -> BatchResult[_S]:
+    return BatchResult(source, None, make_error(PH_ERR_CANCELLED))
 
 
-def _algorithms(algorithms: Sequence[AlgorithmLike]) -> tuple[list[Algorithm], int]:
+def _algorithms(algorithms: _Algorithms) -> tuple[list[Algorithm], int]:
     if isinstance(algorithms, (str, Algorithm)):
-        algorithms = [algorithms]
-    algos = sorted({to_algorithm(a) for a in algorithms})
+        algos = [to_algorithm(algorithms)]
+    else:
+        algos = sorted({to_algorithm(a) for a in algorithms})
     if not algos:
         raise InvalidArgumentError("no algorithm given")
     return algos, uint64_flags(algos)
 
 
 def _result(
-    source: Any, item: Any, algos: list[Algorithm], path: Any = None
-) -> BatchResult:
+    source: _S, item: Any, algos: list[Algorithm], path: Optional[StrPath] = None
+) -> BatchResult[_S]:
     status = int(item.status)
     if status != PH_SUCCESS:
-        return BatchResult(source, None, make_error(status, context=str(source), path=path))
+        return BatchResult(
+            source, None, make_error(status, context=str(source), path=path)
+        )
     # Slots follow ascending flag bits, which is ascending Algorithm value.
     return BatchResult(
         source, {a: int(item.hashes[i]) for i, a in enumerate(algos)}, None
@@ -191,11 +191,9 @@ class _Run:
         threads: int,
         progress: ProgressCallback | None,
     ) -> None:
-        if isinstance(threads, bool) or not isinstance(threads, int) or threads < 0:
-            raise InvalidArgumentError(f"threads must be an int >= 0, got {threads!r}")
         self.total = total
         self.config = config if config is not None else Config()
-        self.threads = threads
+        self.threads = _check_threads(threads)
         self.progress = progress
         self.lock = threading.Lock()
         self.done = 0
@@ -209,8 +207,8 @@ class _Run:
         self.options: Any = None
 
     def __enter__(self) -> _Run:
-        self.template = _new_context()
-        self.config._apply(self.template)
+        self.template = new_context()
+        apply_config(self.config, self.template)
         self.options = ffi.new("ph_batch_options_t *")
         check(lib.ph_batch_options_init(self.options))
         self.handle = ffi.new_handle(self)
@@ -232,7 +230,7 @@ class _Run:
         """Check the batch's return code, re-raising a callback's exception."""
         if self.error is not None:
             raise self.error
-        if code not in (PH_SUCCESS, _PH_ERR_CANCELLED):
+        if code not in (PH_SUCCESS, PH_ERR_CANCELLED):
             raise make_error(code, context="batch")
 
     # Ctrl+C: while the batch runs, the main thread is inside C and Python's SIGINT
@@ -298,8 +296,14 @@ class _Run:
                 self.stop = True
 
 
-@ffi.def_extern()  # type: ignore[untyped-decorator]
-def _libphash_should_continue(user_data: Any) -> int:
+def _check_threads(threads: object) -> int:
+    if isinstance(threads, bool) or not isinstance(threads, int) or threads < 0:
+        raise InvalidArgumentError(f"threads must be an int >= 0, got {threads!r}")
+    return threads
+
+
+@ffi.def_extern(name="_libphash_should_continue")
+def should_continue_callback(user_data: Any) -> int:
     try:
         run: _Run = ffi.from_handle(user_data)
         return 1 if run.should_continue() else 0
@@ -307,8 +311,8 @@ def _libphash_should_continue(user_data: Any) -> int:
         return 0
 
 
-@ffi.def_extern()  # type: ignore[untyped-decorator]
-def _libphash_on_progress(done: int, total: int, user_data: Any) -> None:
+@ffi.def_extern(name="_libphash_on_progress")
+def on_progress_callback(done: int, total: int, user_data: Any) -> None:
     try:
         run: _Run = ffi.from_handle(user_data)
         run.on_progress()

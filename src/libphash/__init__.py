@@ -14,14 +14,20 @@ from __future__ import annotations
 
 from typing import Any, Literal, Union, overload
 
-from ._algorithms import Algorithm, AlgorithmLike, DigestKind
+from ._algorithms import Algorithm, AlgorithmLike, DigestKind, to_algorithm
 from ._batch import BatchResult, ProgressCallback, hash_buffers, hash_files
-from ._config import Config, _new_context
+from ._config import (
+    AlphaMode,
+    Config,
+    DecodeScale,
+    WHashMode,
+    apply_config,
+    new_context,
+)
 from ._context import (
     DigestAlgorithm,
     DigestName,
     ImageContext,
-    Source,
     Uint64Algorithm,
     Uint64Name,
 )
@@ -34,11 +40,19 @@ from ._digest import (
     hash_to_hex,
     similarity,
 )
+from ._errors import PH_SUCCESS, make_error
 from ._native import ffi, lib
+from ._sources import (
+    ChannelOrder,
+    PILImage,
+    PixelArray,
+    Source,
+    StrPath,
+    SupportsArrayInterface,
+    SupportsRead,
+)
 from ._version import __version__ as __version__
 from .exceptions import (
-    PH_SUCCESS,
-    make_error,
     AllocationError,
     BatchCancelledError,
     CorruptDataError,
@@ -57,16 +71,22 @@ from .exceptions import (
 
 __all__ = [
     "Algorithm",
+    "AlgorithmLike",
     "AllocationError",
+    "AlphaMode",
     "BatchCancelledError",
     "BatchResult",
+    "ChannelOrder",
     "Config",
     "CorruptDataError",
     "DecodeError",
+    "DecodeScale",
     "DecoderUnavailableError",
     "Digest",
+    "DigestAlgorithm",
     "DigestKind",
     "DigestKindError",
+    "DigestName",
     "EmptyImageError",
     "ImageContext",
     "ImageIOError",
@@ -74,11 +94,20 @@ __all__ = [
     "InvalidArgumentError",
     "NoStructureError",
     "PH_DIGEST_MAX_BYTES",
+    "PILImage",
     "PhashError",
+    "PixelArray",
     "ProgressCallback",
     "RADIAL_PCC_THRESHOLD",
     "RequiresColorError",
+    "Source",
+    "StrPath",
+    "SupportsArrayInterface",
+    "SupportsRead",
+    "Uint64Algorithm",
+    "Uint64Name",
     "UnsupportedFormatError",
+    "WHashMode",
     "build_info",
     "can_decode",
     "digest_info",
@@ -158,12 +187,10 @@ def digest_info(
     """Size in bytes and kind of the hashes ``algorithm`` produces with ``config``,
     without an image: for sizing a database column, say. A 64-bit hash is 8 ``BITS``
     bytes."""
-    from ._algorithms import to_algorithm
-
     algo = to_algorithm(algorithm)
-    ctx = _new_context()
+    ctx = new_context()
     try:
-        (config if config is not None else Config())._apply(ctx)
+        apply_config(config if config is not None else Config(), ctx)
         size = ffi.new("size_t *")
         kind = ffi.new("ph_digest_kind_t *")
         code = lib.ph_digest_info(ctx, int(algo), size, kind)

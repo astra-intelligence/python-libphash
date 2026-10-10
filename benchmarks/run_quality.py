@@ -32,14 +32,14 @@ def prepare_quality_dataset(base_images, output_dir, fmt="JPEG", mode="normal"):
     all_files = []
     ground_truth = {}
 
-    from benchmarks.utils import generate_augmentations, generate_complex_augmentations
-    gen_func = generate_complex_augmentations if mode == "complex" else generate_augmentations
+    from benchmarks.utils import generate_complex_augmentations
+
+    gen_func = (
+        generate_complex_augmentations if mode == "complex" else generate_augmentations
+    )
 
     with ProcessPoolExecutor() as executor:
-        futures = [
-            executor.submit(gen_func, p, output_dir, fmt)
-            for p in base_images
-        ]
+        futures = [executor.submit(gen_func, p, output_dir, fmt) for p in base_images]
         for f in tqdm(futures, desc="Generating augmentations"):
             results = f.result()
             for path, base_name in results:
@@ -61,13 +61,14 @@ def evaluate_quality(files, ground_truth):
 
     n = len(files)
     y_true = []
-    
+
     # Pre-calculate algorithm keys that actually exist
     keys = []
     for a in ALGORITHMS:
-        if a[1]: keys.append(f"{a[0]}_ih")
+        if a[1]:
+            keys.append(f"{a[0]}_ih")
         keys.append(f"{a[0]}_lp")
-        
+
     dist_vectors = {k: [] for k in keys}
 
     print(f"Comparing {n * (n - 1) // 2} pairs...")
@@ -82,10 +83,11 @@ def evaluate_quality(files, ground_truth):
             for key in dist_vectors.keys():
                 h1, h2 = hashes[f1][key], hashes[f2][key]
                 if h1 is None or h2 is None:
-                    dist_vectors[key].append(999) # Fail distance
+                    dist_vectors[key].append(999)  # Fail distance
                     continue
-                
+
                 from libphash import Digest
+
                 if isinstance(h1, Digest):
                     # A distance: lower is closer, as for the other hashes here.
                     dist = 1.0 - h1.similarity(h2)

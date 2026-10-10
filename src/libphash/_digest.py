@@ -4,7 +4,8 @@ from typing import Any, Callable, NoReturn, final
 
 from ._algorithms import DigestKind
 from ._native import ffi, lib
-from .exceptions import DigestKindError, InvalidArgumentError, PH_SUCCESS, make_error
+from ._errors import PH_SUCCESS, make_error
+from .exceptions import DigestKindError, InvalidArgumentError
 
 PH_DIGEST_MAX_BYTES: int = int(lib.PH_DIGEST_MAX_BYTES)
 _UINT64_MAX = (1 << 64) - 1
@@ -60,18 +61,7 @@ class Digest:
         code = lib.ph_digest_from_hex(text.encode("ascii", "replace"), out)
         if code != PH_SUCCESS:
             raise make_error(code, context=f"parsing digest {text[:40]!r}")
-        return cls._from_c(out)
-
-    @classmethod
-    def _from_c(cls, c_digest: Any) -> Digest:
-        return cls(bytes(ffi.buffer(c_digest.data, c_digest.size)), int(c_digest.kind))
-
-    def _to_c(self) -> Any:
-        c_digest = ffi.new("ph_digest_t *")
-        c_digest.size = len(self._data)
-        c_digest.kind = int(self._kind)
-        ffi.memmove(c_digest.data, self._data, len(self._data))
-        return c_digest
+        return digest_from_c(out)
 
     @property
     def data(self) -> bytes:
@@ -108,14 +98,14 @@ class Digest:
         """Text form: the kind, a colon, the bytes in lowercase hex (``"bits:3fa0..."``)."""
         size = int(lib.PH_DIGEST_HEX_BUFFER_SIZE)
         out = ffi.new("char[]", size)
-        code = lib.ph_digest_to_hex(self._to_c(), out, size)
+        code = lib.ph_digest_to_hex(digest_to_c(self), out, size)
         if code != PH_SUCCESS:
             raise make_error(code, context="encoding digest")
         return str(ffi.string(out).decode("ascii"))
 
     # --- Comparisons -----------------------------------------------------------------
 
-    def _pair(self, other: Digest, metric: str) -> tuple[Any, Any]:
+    def _pair(self, other: object, metric: str) -> tuple[Any, Any]:
         if not isinstance(other, Digest):
             raise TypeError(f"expected a Digest, got {type(other).__name__}")
         allowed = _METRIC_KINDS[metric]
@@ -126,7 +116,7 @@ class Digest:
             raise InvalidArgumentError(
                 f"{metric}: digests of different sizes ({len(self._data)} and {len(other._data)} bytes)"
             )
-        return self._to_c(), other._to_c()
+        return digest_to_c(self), digest_to_c(other)
 
     def hamming_distance(self, other: Digest) -> int:
         """Number of differing bits between two ``BITS`` digests (BMH, mHash)."""
@@ -183,6 +173,21 @@ class Digest:
         )
 
 
+def digest_from_c(c_digest: Any) -> Digest:
+    """A Digest from a ``ph_digest_t *``."""
+    return Digest(bytes(ffi.buffer(c_digest.data, c_digest.size)), int(c_digest.kind))
+
+
+def digest_to_c(digest: Digest) -> Any:
+    """A new ``ph_digest_t *`` holding ``digest``."""
+    data = digest.data
+    c_digest = ffi.new("ph_digest_t *")
+    c_digest.size = len(data)
+    c_digest.kind = int(digest.kind)
+    ffi.memmove(c_digest.data, data, len(data))
+    return c_digest
+
+
 def _wrong_kind(metric: str, kind: DigestKind) -> NoReturn:
     right = {
         DigestKind.BITS: "hamming_distance() or similarity()",
@@ -214,7 +219,7 @@ def _out_double(
     return float(out[0])
 
 
-def _check_uint64(value: int) -> int:
+def _check_uint64(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"a 64-bit hash is an int, got {type(value).__name__}")
     if not 0 <= value <= _UINT64_MAX:

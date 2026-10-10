@@ -5,12 +5,59 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass
-from typing import Any, Literal, Union
+from typing import Any, Literal, Mapping, Protocol, Union, cast, runtime_checkable
 
 from ._native import ffi
 
+#: A file system path, as ``open()`` takes it.
 StrPath = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+#: Order of the color channels in an array of pixels: ``"bgr"`` is OpenCV's.
 ChannelOrder = Literal["rgb", "bgr"]
+
+
+class SupportsRead(Protocol):
+    """A binary file object: an open file, ``io.BytesIO``, a response body."""
+
+    def read(self) -> bytes: ...
+
+
+@runtime_checkable
+class SupportsArrayInterface(Protocol):
+    """An array exposing numpy's ``__array_interface__``: a numpy array, a Pillow image."""
+
+    @property
+    def __array_interface__(self) -> Mapping[str, Any]: ...
+
+
+class PILImage(Protocol):
+    """The part of ``PIL.Image.Image`` the binding reads."""
+
+    @property
+    def mode(self) -> str: ...
+    @property
+    def size(self) -> tuple[int, int]: ...
+    @property
+    def info(self) -> Mapping[Any, Any]: ...
+    def tobytes(self) -> bytes: ...
+    def convert(self, mode: str) -> PILImage: ...
+
+
+#: Decoded 8-bit pixels of shape (h, w) or (h, w, 1|3|4): a numpy array or a memoryview.
+PixelArray = Union[SupportsArrayInterface, memoryview]
+
+#: Everything :func:`libphash.hash` and :meth:`ImageContext.load` accept: a path, encoded
+#: bytes, a binary file object, an array of pixels or a Pillow image. ``bytes`` are
+#: always encoded image data, never a path.
+Source = Union[
+    str,
+    "os.PathLike[str]",
+    "os.PathLike[bytes]",
+    bytes,
+    bytearray,
+    memoryview,
+    SupportsArrayInterface,
+    SupportsRead,
+]
 
 #: Paths reach the C library's narrow-character open(), which on Windows reads the ANSI
 #: code page, not the UTF-8 that os.fsencode() gives. On Windows the binding therefore
@@ -28,20 +75,10 @@ def encode_path(path: StrPath) -> bytes:
         ) from None
 
 
-def is_path(obj: object) -> bool:
-    return isinstance(obj, (str, os.PathLike))
-
-
 def is_pil_image(obj: object) -> bool:
     module = type(obj).__module__ or ""
     return (
         module.startswith("PIL.") and hasattr(obj, "mode") and hasattr(obj, "tobytes")
-    )
-
-
-def has_shape(obj: object) -> bool:
-    return hasattr(obj, "__array_interface__") or (
-        isinstance(obj, memoryview) and obj.ndim in (2, 3)
     )
 
 
@@ -57,7 +94,7 @@ class Pixels:
     keepalive: Any
 
 
-def pixels_from_array(obj: Any, channel_order: ChannelOrder = "rgb") -> Pixels:
+def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> Pixels:
     """Pixels of an 8-bit array of shape (h, w) or (h, w, 1|3|4).
 
     A numpy array whose rows are spaced apart (a crop, ``arr[10:-10, 5:-5]``) is passed
@@ -70,7 +107,8 @@ def pixels_from_array(obj: Any, channel_order: ChannelOrder = "rgb") -> Pixels:
     if iface is not None:
         return _from_array_interface(obj, iface, channel_order)
     try:
-        view = memoryview(obj)
+        # Any object with the buffer protocol and a shape, beyond what PixelArray names.
+        view = obj if isinstance(obj, memoryview) else memoryview(cast(Any, obj))
     except TypeError:
         raise TypeError(
             f"expected an array of pixels (numpy, memoryview with a shape), got {type(obj).__name__}"
@@ -88,7 +126,7 @@ def pixels_from_array(obj: Any, channel_order: ChannelOrder = "rgb") -> Pixels:
 
 
 def _from_array_interface(
-    obj: Any, iface: dict[str, Any], channel_order: ChannelOrder
+    obj: object, iface: Mapping[str, Any], channel_order: ChannelOrder
 ) -> Pixels:
     typestr = iface.get("typestr", "")
     if typestr[1:] != "u1":
@@ -114,7 +152,7 @@ def _from_array_interface(
         return Pixels(pointer, width, height, channels, row, obj)
     # Any other layout: one C-ordered copy through the buffer protocol.
     try:
-        packed = memoryview(obj).tobytes()
+        packed = memoryview(cast(Any, obj)).tobytes()
     except TypeError:
         raise TypeError(
             "the array does not expose its data through the buffer protocol"
@@ -151,7 +189,7 @@ _PIL_DIRECT = {"L": 1, "RGB": 3, "RGBA": 4}
 _PIL_UNSUPPORTED = ("I", "I;16", "I;16B", "I;16L", "I;16N", "F")
 
 
-def pixels_from_pil(img: Any) -> Pixels:
+def pixels_from_pil(img: PILImage) -> Pixels:
     """Pixels of a Pillow image.
 
     ``L``, ``RGB`` and ``RGBA`` are read as they are. ``1`` becomes ``L``; palette and

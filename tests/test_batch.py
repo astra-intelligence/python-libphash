@@ -2,6 +2,7 @@ import os
 import signal
 import sys
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +10,7 @@ import libphash as ph
 from conftest import data
 
 
-def paths():
+def paths() -> list[Path]:
     return [
         data(n)
         for n in (
@@ -39,10 +40,11 @@ def test_batch_matches_single_hashes(threads: int) -> None:
 def test_batch_uses_the_config() -> None:
     cfg = ph.Config(phash_reduction_size=4)
     [r] = ph.hash_files([data("photo.jpeg")], config=cfg)
+    assert r.hashes is not None
     assert r.hashes[ph.Algorithm.PHASH] == ph.hash(data("photo.jpeg"), config=cfg)
 
 
-def test_failed_items_carry_their_error(tmp_path) -> None:
+def test_failed_items_carry_their_error(tmp_path: Path) -> None:
     bad = tmp_path / "bad.jpg"
     bad.write_bytes(b"junk")
     results = ph.hash_files([data("photo.jpeg"), tmp_path / "missing.jpg", bad])
@@ -53,7 +55,7 @@ def test_failed_items_carry_their_error(tmp_path) -> None:
     assert isinstance(results[2].error, ph.UnsupportedFormatError)
 
 
-def test_buffers(photo_bytes) -> None:
+def test_buffers(photo_bytes: bytes) -> None:
     results = ph.hash_buffers([photo_bytes, b"junk", bytearray(photo_bytes)], "ahash")
     assert [r.source for r in results] == [0, 1, 2]
     assert results[0].hashes == {ph.Algorithm.AHASH: ph.hash(photo_bytes, "ahash")}

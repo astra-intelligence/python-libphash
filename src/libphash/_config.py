@@ -3,10 +3,11 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn, cast
 
 from ._native import ffi, lib
-from .exceptions import InvalidArgumentError, PH_SUCCESS, check, error_string
+from ._errors import PH_SUCCESS, check, error_string
+from .exceptions import InvalidArgumentError
 
 WHashMode = Literal["fast", "full"]
 AlphaMode = Literal["grey", "white", "black", "ignore"]
@@ -79,9 +80,9 @@ class Config:
 
     def __post_init__(self) -> None:
         _check_types(self)
-        ctx = _new_context()
+        ctx = new_context()
         try:
-            self._apply(ctx)
+            apply_config(self, ctx)
         finally:
             lib.ph_free(ctx)
 
@@ -89,81 +90,86 @@ class Config:
         """A copy with the given fields changed (checked like a new Config)."""
         return dataclasses.replace(self, **changes)
 
-    def _apply(self, ctx: Any) -> None:
-        """Set every field on a ``ph_context_t``."""
-        steps: list[tuple[str, int]] = [
-            ("gamma", lib.ph_context_set_gamma(ctx, self.gamma)),
-            ("gray_weights", lib.ph_context_set_gray_weights(ctx, *self.gray_weights)),
-            (
-                "phash_dct_size/phash_reduction_size",
-                lib.ph_context_set_phash_params(
-                    ctx, self.phash_dct_size, self.phash_reduction_size
-                ),
+
+def apply_config(cfg: Config, ctx: Any) -> None:
+    """Set every field of ``cfg`` on a ``ph_context_t``."""
+    steps: list[tuple[str, int]] = [
+        ("gamma", lib.ph_context_set_gamma(ctx, cfg.gamma)),
+        ("gray_weights", lib.ph_context_set_gray_weights(ctx, *cfg.gray_weights)),
+        (
+            "phash_dct_size/phash_reduction_size",
+            lib.ph_context_set_phash_params(
+                ctx, cfg.phash_dct_size, cfg.phash_reduction_size
             ),
-            (
-                "radial_projections/radial_samples/radial_sigma",
-                lib.ph_context_set_radial_params(
-                    ctx, self.radial_projections, self.radial_samples, self.radial_sigma
-                ),
+        ),
+        (
+            "radial_projections/radial_samples/radial_sigma",
+            lib.ph_context_set_radial_params(
+                ctx, cfg.radial_projections, cfg.radial_samples, cfg.radial_sigma
             ),
-            (
-                "bmh_block_size",
-                lib.ph_context_set_block_params(ctx, self.bmh_block_size),
+        ),
+        (
+            "bmh_block_size",
+            lib.ph_context_set_block_params(ctx, cfg.bmh_block_size),
+        ),
+        (
+            "mhash_alpha/mhash_level/mhash_size",
+            lib.ph_context_set_mhash_params(
+                ctx, cfg.mhash_alpha, cfg.mhash_level, cfg.mhash_size
             ),
-            (
-                "mhash_alpha/mhash_level/mhash_size",
-                lib.ph_context_set_mhash_params(
-                    ctx, self.mhash_alpha, self.mhash_level, self.mhash_size
-                ),
+        ),
+        (
+            "whash_mode",
+            lib.ph_context_set_whash_mode(ctx, _WHASH_MODES[cfg.whash_mode]),
+        ),
+        (
+            "whash_remove_max_haar_ll",
+            lib.ph_context_set_whash_remove_max_haar_ll(
+                ctx, int(cfg.whash_remove_max_haar_ll)
             ),
-            (
-                "whash_mode",
-                lib.ph_context_set_whash_mode(ctx, _WHASH_MODES[self.whash_mode]),
-            ),
-            (
-                "whash_remove_max_haar_ll",
-                lib.ph_context_set_whash_remove_max_haar_ll(
-                    ctx, int(self.whash_remove_max_haar_ll)
-                ),
-            ),
-            ("grayscale", lib.ph_context_set_load_grayscale(ctx, int(self.grayscale))),
-            (
-                "alpha_mode",
-                lib.ph_context_set_alpha_mode(ctx, _ALPHA_MODES[self.alpha_mode]),
-            ),
-            ("auto_orient", lib.ph_context_set_auto_orient(ctx, int(self.auto_orient))),
-            ("max_pixels", lib.ph_context_set_max_pixels(ctx, self.max_pixels)),
-            (
-                "decode_scale",
-                lib.ph_context_set_decode_scale(ctx, _DECODE_SCALES[self.decode_scale]),
-            ),
-        ]
-        for name, code in steps:
-            if code != PH_SUCCESS:
-                values = ", ".join(f"{f}={getattr(self, f)!r}" for f in name.split("/"))
-                raise InvalidArgumentError(
-                    f"Config: {values} is out of range: {error_string(code)}", code=code
-                )
+        ),
+        ("grayscale", lib.ph_context_set_load_grayscale(ctx, int(cfg.grayscale))),
+        (
+            "alpha_mode",
+            lib.ph_context_set_alpha_mode(ctx, _ALPHA_MODES[cfg.alpha_mode]),
+        ),
+        ("auto_orient", lib.ph_context_set_auto_orient(ctx, int(cfg.auto_orient))),
+        ("max_pixels", lib.ph_context_set_max_pixels(ctx, cfg.max_pixels)),
+        (
+            "decode_scale",
+            lib.ph_context_set_decode_scale(ctx, _DECODE_SCALES[cfg.decode_scale]),
+        ),
+    ]
+    for name, code in steps:
+        if code != PH_SUCCESS:
+            values = ", ".join(f"{f}={getattr(cfg, f)!r}" for f in name.split("/"))
+            raise InvalidArgumentError(
+                f"Config: {values} is out of range: {error_string(code)}", code=code
+            )
 
 
-def _new_context() -> Any:
+def new_context() -> Any:
     out = ffi.new("ph_context_t **")
     check(lib.ph_create(out), context="creating a context")
     return out[0]
 
 
 def _check_types(cfg: Config) -> None:
-    def fail(name: str, expected: str) -> None:
+    # The annotations do not bind an untyped caller; every value is checked as an object.
+    def fail(name: str, expected: str) -> NoReturn:
         raise InvalidArgumentError(
             f"Config: {name} must be {expected}, got {getattr(cfg, name)!r}"
         )
 
+    def value(name: str) -> object:
+        return getattr(cfg, name)
+
     for name in ("gamma", "radial_sigma", "mhash_alpha", "mhash_level"):
-        value = getattr(cfg, name)
+        v = value(name)
         if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(value)
+            isinstance(v, bool)
+            or not isinstance(v, (int, float))
+            or not math.isfinite(v)
         ):
             fail(name, "a finite number")
     for name in (
@@ -175,24 +181,25 @@ def _check_types(cfg: Config) -> None:
         "mhash_size",
         "max_pixels",
     ):
-        value = getattr(cfg, name)
-        if isinstance(value, bool) or not isinstance(value, int):
+        if not _is_int(value(name)):
             fail(name, "an int")
     if not (0 <= cfg.max_pixels < 1 << 64):
         fail("max_pixels", "in [0, 2**64)")
-    weights = cfg.gray_weights
-    if (
-        not isinstance(weights, tuple)
-        or len(weights) != 3
-        or any(isinstance(w, bool) or not isinstance(w, int) for w in weights)
-    ):
+    weights = value("gray_weights")
+    items = cast("tuple[object, ...]", weights) if isinstance(weights, tuple) else ()
+    if len(items) != 3 or not all(_is_int(w) for w in items):
         fail("gray_weights", "a tuple of three ints")
     for name in ("whash_remove_max_haar_ll", "grayscale", "auto_orient"):
-        if not isinstance(getattr(cfg, name), bool):
+        if not isinstance(value(name), bool):
             fail(name, "a bool")
-    if cfg.whash_mode not in _WHASH_MODES:
+    if value("whash_mode") not in _WHASH_MODES:
         fail("whash_mode", "one of " + ", ".join(map(repr, _WHASH_MODES)))
-    if cfg.alpha_mode not in _ALPHA_MODES:
+    if value("alpha_mode") not in _ALPHA_MODES:
         fail("alpha_mode", "one of " + ", ".join(map(repr, _ALPHA_MODES)))
-    if isinstance(cfg.decode_scale, bool) or cfg.decode_scale not in _DECODE_SCALES:
+    scale = value("decode_scale")
+    if not _is_int(scale) or scale not in _DECODE_SCALES:
         fail("decode_scale", "1, 2, 4 or 8")
+
+
+def _is_int(v: object) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)

@@ -1,4 +1,6 @@
+import math
 import pickle
+from pathlib import Path
 
 import pytest
 
@@ -26,8 +28,15 @@ def test_immutable_hashable_equal() -> None:
     assert bytes(a) == b"\x01\x02" and len(a) == 2
 
 
-def test_hex_round_trip_keeps_the_kind(photo) -> None:
-    for algo in ("bmh", "mhash", "radial", "color_hash", "color_moments"):
+def test_hex_round_trip_keeps_the_kind(photo: Path) -> None:
+    algos: tuple[ph.DigestName, ...] = (
+        "bmh",
+        "mhash",
+        "radial",
+        "color_hash",
+        "color_moments",
+    )
+    for algo in algos:
         d = ph.hash(photo, algo)
         text = d.hex()
         assert text.startswith(d.kind.name.lower() + ":")
@@ -40,7 +49,7 @@ def test_from_hex_rejects_garbage() -> None:
         Digest.from_hex("bits:xyz")
 
 
-def test_pickle(photo) -> None:
+def test_pickle(photo: Path) -> None:
     d = ph.hash(photo, "radial")
     assert pickle.loads(pickle.dumps(d)) == d
 
@@ -62,23 +71,24 @@ def test_uint64_helpers_check_range() -> None:
         ph.hamming_distance(1.0, 0)  # type: ignore[arg-type]
 
 
-def test_similarity_picks_the_metric_of_the_kind(photo) -> None:
-    for algo in ("bmh", "mhash", "color_hash"):
+def test_similarity_picks_the_metric_of_the_kind(photo: Path) -> None:
+    algos: tuple[ph.DigestName, ...] = ("bmh", "mhash", "color_hash")
+    for algo in algos:
         d = ph.hash(photo, algo)
-        assert d.similarity(d) == pytest.approx(1.0)
+        assert math.isclose(d.similarity(d), 1.0, rel_tol=1e-6)
     radial = ph.hash(photo, "radial")
-    assert radial.similarity(radial) == pytest.approx(1.0)
+    assert math.isclose(radial.similarity(radial), 1.0, rel_tol=1e-6)
     assert radial.similarity(radial) == radial.radial_similarity(radial)
 
 
-def test_color_moments_have_no_similarity(photo) -> None:
+def test_color_moments_have_no_similarity(photo: Path) -> None:
     d = ph.hash(photo, "color_moments")
     assert d.l2_distance(d) == 0.0
     with pytest.raises(ph.DigestKindError, match="l2_distance"):
         d.similarity(d)
 
 
-def test_wrong_metric_is_refused(photo) -> None:
+def test_wrong_metric_is_refused(photo: Path) -> None:
     radial = ph.hash(photo, "radial")
     with pytest.raises(ph.DigestKindError, match="radial_similarity"):
         radial.hamming_distance(radial)
@@ -102,12 +112,12 @@ def test_flat_radial_digest_has_no_structure() -> None:
 def test_unspecified_kind() -> None:
     a = Digest(bytes([10, 10]), DigestKind.UNSPECIFIED)
     b = Digest(bytes([14, 13]), DigestKind.UNSPECIFIED)
-    assert a.l2_distance(b) == pytest.approx(5.0)
+    assert math.isclose(a.l2_distance(b), 5.0, rel_tol=1e-6)
     with pytest.raises(ph.DigestKindError, match="neither digest"):
         a.similarity(b)
 
 
-def test_digest_info_matches_computed_digests(photo) -> None:
+def test_digest_info_matches_computed_digests(photo: Path) -> None:
     for algo in ph.Algorithm:
         size, kind = ph.digest_info(algo)
         value = ph.hash(photo, algo)

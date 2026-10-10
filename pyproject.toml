@@ -27,7 +27,7 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "mypy", "ruff", "setuptools", "numpy", "Pillow"]
+dev = ["pytest", "mypy", "basedpyright", "ruff", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
 benchmark = ["imagehash", "Pillow", "pandas", "tabulate", "scikit-learn", "tqdm", "numpy"]
 
 [tool.setuptools]
@@ -58,4 +58,15 @@ before-all = "brew install nasm || true"
 
 [tool.mypy]
 strict = true
-ignore_missing_imports = true
+files = ["src", "tests", "tools", "setup.py"]
+mypy_path = ["src", "tools"]
+
+[tool.basedpyright]
+typeCheckingMode = "strict"
+include = ["src", "tests", "tools", "setup.py"]
+# tools/ is imported by setup.py and the tests through sys.path.
+extraPaths = ["tools"]
+pythonVersion = "3.9"
+
+[tool.ruff]
+extend-exclude = ["native"]

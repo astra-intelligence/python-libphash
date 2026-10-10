@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
 import libphash as ph
@@ -6,9 +8,12 @@ from conftest import data
 np = pytest.importorskip("numpy")
 Image = pytest.importorskip("PIL.Image")
 
+if TYPE_CHECKING:
+    from PIL.Image import Image as PILImage
 
-def pil(name: str):
-    return Image.open(data(name))
+
+def pil(name: str) -> "PILImage":
+    return cast("PILImage", Image.open(data(name)))
 
 
 @pytest.mark.parametrize("name", ["png/rgb8.png", "png/rgba8.png", "png/gray8.png"])

@@ -56,7 +56,10 @@ if __name__ == "__main__":
         "--count", type=int, default=100, help="Number of images to generate"
     )
     parser.add_argument(
-        "--format", choices=["jpeg", "png", "webp", "all"], default="jpeg", help="Image format"
+        "--format",
+        choices=["jpeg", "png", "webp", "all"],
+        default="jpeg",
+        help="Image format",
     )
     args = parser.parse_args()
 

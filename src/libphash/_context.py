@@ -1,32 +1,40 @@
 from __future__ import annotations
 
+import os
 import threading
-from typing import Any, Literal, NoReturn, Union, overload
+from typing import Any, Literal, NoReturn, Union, cast, overload
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
-from ._config import Config, _new_context
-from ._digest import Digest
+from ._config import Config, apply_config, new_context
+from ._digest import Digest, digest_from_c
 from ._native import ffi, lib
 from ._sources import (
     READ_FILES_IN_PYTHON,
     ChannelOrder,
+    PILImage,
+    PixelArray,
     Pixels,
+    Source,
     StrPath,
+    SupportsArrayInterface,
+    SupportsRead,
     encode_path,
-    has_shape,
-    is_path,
     is_pil_image,
     pixels_from_array,
     pixels_from_pil,
     read_file,
 )
-from .exceptions import PH_ERR_IO, PH_SUCCESS, make_error
+from ._errors import PH_ERR_IO, PH_SUCCESS, make_error
 
+#: Names of the algorithms that produce a 64-bit ``int``.
 Uint64Name = Literal["ahash", "dhash", "phash", "whash"]
+#: Names of the algorithms that produce a :class:`Digest`.
 DigestName = Literal["bmh", "mhash", "radial", "color_hash", "color_moments"]
+#: The algorithms that produce a 64-bit ``int``.
 Uint64Algorithm = Literal[
     Algorithm.AHASH, Algorithm.DHASH, Algorithm.PHASH, Algorithm.WHASH
 ]
+#: The algorithms that produce a :class:`Digest`.
 DigestAlgorithm = Literal[
     Algorithm.BMH,
     Algorithm.MHASH,
@@ -34,7 +42,6 @@ DigestAlgorithm = Literal[
     Algorithm.COLOR_HASH,
     Algorithm.COLOR_MOMENTS,
 ]
-Source = Any  # path, encoded bytes, file-like, array of pixels or Pillow image
 
 _UINT64_COMPUTE = {
     Algorithm.AHASH: lib.ph_compute_ahash,
@@ -61,12 +68,10 @@ class ImageContext:
 
     def __init__(self, config: Config | None = None) -> None:
         self._lock = threading.Lock()
-        self._config = config if config is not None else Config()
-        if not isinstance(self._config, Config):
-            raise TypeError(f"expected a Config, got {type(config).__name__}")
-        ptr = _new_context()
+        self._config = _config_or_default(config)
+        ptr = new_context()
         self._ptr: Any = ffi.gc(ptr, lib.ph_free)
-        self._config._apply(self._ptr)
+        apply_config(self._config, self._ptr)
 
     # --- Lifecycle -------------------------------------------------------------------
 
@@ -149,17 +154,20 @@ class ImageContext:
         """Load whatever ``source`` is: a path, encoded bytes, a binary file object, an
         array of pixels or a Pillow image. Bytes are always the encoded file, never a path.
         """
-        if is_path(source):
+        if isinstance(source, (str, os.PathLike)):
             self.load_file(source)
-        elif isinstance(source, (bytes, bytearray)) or (
-            isinstance(source, memoryview) and not has_shape(source)
-        ):
+        elif isinstance(source, (bytes, bytearray)):
             self.load_bytes(source)
+        elif isinstance(source, memoryview):
+            if source.ndim in (2, 3):
+                self.load_pixels(source)
+            else:
+                self.load_bytes(source)
         elif is_pil_image(source):
-            self.load_pil(source)
-        elif has_shape(source):
+            self.load_pil(cast(PILImage, source))
+        elif isinstance(source, SupportsArrayInterface):
             self.load_pixels(source)
-        elif hasattr(source, "read"):
+        elif callable(getattr(source, "read", None)):
             self.load_fileobj(source)
         else:
             raise TypeError(
@@ -208,17 +216,14 @@ class ImageContext:
             if code != PH_SUCCESS:
                 raise make_error(code, detail=self._last_message(ptr))
 
-    def load_fileobj(self, fileobj: Any) -> None:
+    def load_fileobj(self, fileobj: SupportsRead) -> None:
         """Read a binary file object (an open file, ``io.BytesIO``, a response body) to
         its end and load the bytes."""
-        data = fileobj.read()
-        if not isinstance(data, (bytes, bytearray, memoryview)):
-            raise TypeError(
-                f"{type(fileobj).__name__}.read() returned {type(data).__name__}, not bytes"
-            )
-        self.load_bytes(data)
+        self.load_bytes(_read_all(fileobj))
 
-    def load_pixels(self, pixels: Any, channel_order: ChannelOrder = "rgb") -> None:
+    def load_pixels(
+        self, pixels: PixelArray, channel_order: ChannelOrder = "rgb"
+    ) -> None:
         """Load decoded pixels: an 8-bit array of shape (h, w), (h, w, 1), (h, w, 3) or
         (h, w, 4), e.g. a numpy ``uint8`` array. ``channel_order="bgr"`` reads OpenCV's
         order. The pixels are copied into the context, and no EXIF orientation applies.
@@ -226,7 +231,7 @@ class ImageContext:
         """
         self._load_pixels(pixels_from_array(pixels, channel_order))
 
-    def load_pil(self, image: Any) -> None:
+    def load_pil(self, image: PILImage) -> None:
         """Load a Pillow image (see :func:`pixels_from_pil` for how each mode is read)."""
         self._load_pixels(pixels_from_pil(image))
 
@@ -273,7 +278,7 @@ class ImageContext:
             code = lib.ph_compute_digest(ptr, int(algo), digest)
             if code != PH_SUCCESS:
                 raise make_error(code, context=f"computing {algo}")
-        return Digest._from_c(digest)
+        return digest_from_c(digest)
 
     def hashes(self, *algorithms: AlgorithmLike) -> dict[Algorithm, Union[int, Digest]]:
         """Compute several hashes at once. The 64-bit ones share their work on the full
@@ -331,3 +336,22 @@ class ImageContext:
     def color_moments(self) -> Digest:
         """Color moments: mean, standard deviation and cube root of the third moment per channel (VECTOR16)."""
         return self.hash(Algorithm.COLOR_MOMENTS)
+
+
+def _config_or_default(config: object) -> Config:
+    if config is None:
+        return Config()
+    if not isinstance(config, Config):
+        raise TypeError(f"expected a Config, got {type(config).__name__}")
+    return config
+
+
+def _read_all(fileobj: SupportsRead) -> bytes | bytearray | memoryview:
+    data = cast(object, fileobj.read())  # checked: an untyped read() may return str
+    if isinstance(data, (bytes, bytearray)):
+        return data
+    if isinstance(data, memoryview):
+        return cast(memoryview, data)
+    raise TypeError(
+        f"{type(fileobj).__name__}.read() returned {type(data).__name__}, not bytes"
+    )

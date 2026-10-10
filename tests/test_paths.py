@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +10,9 @@ import libphash as ph
 @pytest.mark.parametrize(
     "name", ["кот.jpg", "猫の写真.jpg", "🐈 photo.jpg", "with space.jpg"]
 )
-def test_non_ascii_names(tmp_path, photo, photo_bytes, name: str) -> None:
+def test_non_ascii_names(
+    tmp_path: Path, photo: Path, photo_bytes: bytes, name: str
+) -> None:
     directory = tmp_path / "Фото"
     directory.mkdir()
     path = directory / name
@@ -24,7 +27,7 @@ def test_non_ascii_names(tmp_path, photo, photo_bytes, name: str) -> None:
     assert r.hashes == {ph.Algorithm.PHASH: expected}
 
 
-def test_missing_non_ascii_path_message(tmp_path) -> None:
+def test_missing_non_ascii_path_message(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError) as exc:
         ph.hash(tmp_path / "нет.jpg")
     assert "нет.jpg" in str(exc.value)
@@ -33,7 +36,7 @@ def test_missing_non_ascii_path_message(tmp_path) -> None:
 @pytest.mark.skipif(
     sys.platform != "linux", reason="needs a file system that stores raw bytes"
 )
-def test_name_that_is_not_utf8(tmp_path, photo, photo_bytes) -> None:
+def test_name_that_is_not_utf8(tmp_path: Path, photo: Path, photo_bytes: bytes) -> None:
     raw = os.fsencode(tmp_path) + b"/\xff\xfe.jpg"
     with open(raw, "wb") as f:
         f.write(photo_bytes)
@@ -47,7 +50,7 @@ def test_name_that_is_not_utf8(tmp_path, photo, photo_bytes) -> None:
 @pytest.mark.skipif(
     sys.platform == "win32", reason="symlinks need privileges on Windows"
 )
-def test_symlinks(tmp_path, photo) -> None:
+def test_symlinks(tmp_path: Path, photo: Path) -> None:
     link = tmp_path / "link.jpg"
     link.symlink_to(photo)
     assert ph.hash(link) == ph.hash(photo)
@@ -57,7 +60,7 @@ def test_symlinks(tmp_path, photo) -> None:
         ph.hash(dangling)
 
 
-def test_long_path_keeps_the_name(tmp_path) -> None:
+def test_long_path_keeps_the_name(tmp_path: Path) -> None:
     deep = tmp_path / ("d" * 200) / ("e" * 200)
     with pytest.raises(ph.ImageIOError) as exc:
         ph.hash(deep / "image_at_the_end.jpg")
@@ -70,7 +73,7 @@ def test_path_type_is_checked() -> None:
 
 
 @pytest.fixture
-def files_read_in_python(monkeypatch):
+def files_read_in_python(monkeypatch: pytest.MonkeyPatch) -> None:
     """The Windows code path (the binding reads files itself), on any OS."""
     import libphash._batch
     import libphash._context
@@ -80,7 +83,7 @@ def files_read_in_python(monkeypatch):
 
 
 def test_python_read_path_matches_c(
-    files_read_in_python, tmp_path, photo, photo_bytes
+    files_read_in_python: None, tmp_path: Path, photo: Path, photo_bytes: bytes
 ) -> None:
     path = tmp_path / "кот.jpg"
     path.write_bytes(photo_bytes)
@@ -103,7 +106,7 @@ def test_python_read_path_matches_c(
 
 
 def test_python_read_path_cancels_across_chunks(
-    files_read_in_python, tmp_path, photo_bytes
+    files_read_in_python: None, tmp_path: Path, photo_bytes: bytes
 ) -> None:
     path = tmp_path / "a.jpg"
     path.write_bytes(photo_bytes)

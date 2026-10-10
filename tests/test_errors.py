@@ -1,6 +1,8 @@
 import os
 import pickle
 import sys
+from pathlib import Path
+from typing import Callable
 
 import pytest
 
@@ -8,7 +10,7 @@ import libphash as ph
 from conftest import data
 
 
-def test_missing_file_is_file_not_found(tmp_path) -> None:
+def test_missing_file_is_file_not_found(tmp_path: Path) -> None:
     missing = tmp_path / "nope.jpg"
     with pytest.raises(FileNotFoundError) as exc:
         ph.hash(missing)
@@ -19,7 +21,7 @@ def test_missing_file_is_file_not_found(tmp_path) -> None:
     assert "nope.jpg" in str(err)
 
 
-def test_directory_is_a_directory(tmp_path) -> None:
+def test_directory_is_a_directory(tmp_path: Path) -> None:
     with pytest.raises(IsADirectoryError):
         ph.hash(tmp_path)
 
@@ -27,7 +29,9 @@ def test_directory_is_a_directory(tmp_path) -> None:
 @pytest.mark.skipif(
     sys.platform == "win32" or os.geteuid() == 0, reason="POSIX permissions"
 )
-def test_unreadable_file_is_permission_error(tmp_path, photo_bytes) -> None:
+def test_unreadable_file_is_permission_error(
+    tmp_path: Path, photo_bytes: bytes
+) -> None:
     path = tmp_path / "locked.jpg"
     path.write_bytes(photo_bytes)
     path.chmod(0)
@@ -38,7 +42,7 @@ def test_unreadable_file_is_permission_error(tmp_path, photo_bytes) -> None:
         path.chmod(0o600)
 
 
-def test_empty_file_is_an_io_error(tmp_path) -> None:
+def test_empty_file_is_an_io_error(tmp_path: Path) -> None:
     path = tmp_path / "empty.jpg"
     path.write_bytes(b"")
     with pytest.raises(ph.ImageIOError):
@@ -60,13 +64,13 @@ def test_decode_bomb_is_too_large() -> None:
         ph.hash(data("decode_bomb.png"))
 
 
-def test_load_errors_carry_the_c_detail(tmp_path) -> None:
+def test_load_errors_carry_the_c_detail(tmp_path: Path) -> None:
     with pytest.raises(ph.ImageIOError) as exc:
         ph.hash(tmp_path / "nope.jpg")
     assert exc.value.detail and "nope.jpg" in exc.value.detail
 
 
-def test_hash_error_does_not_carry_a_previous_load_detail(tmp_path) -> None:
+def test_hash_error_does_not_carry_a_previous_load_detail(tmp_path: Path) -> None:
     with ph.ImageContext() as ctx:
         with pytest.raises(ph.ImageIOError):
             ctx.load_file(tmp_path / "nope.jpg")
@@ -85,7 +89,7 @@ def test_hash_error_does_not_carry_a_previous_load_detail(tmp_path) -> None:
         lambda: ph.Config(gamma=-1.0),
     ],
 )
-def test_exceptions_pickle(make) -> None:
+def test_exceptions_pickle(make: Callable[[], object]) -> None:
     with pytest.raises(ph.PhashError) as exc:
         make()
     clone = pickle.loads(pickle.dumps(exc.value))
@@ -93,7 +97,7 @@ def test_exceptions_pickle(make) -> None:
     assert str(clone) == str(exc.value) and clone.code == exc.value.code
 
 
-def test_io_exception_pickles_with_errno(tmp_path) -> None:
+def test_io_exception_pickles_with_errno(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError) as exc:
         ph.hash(tmp_path / "nope.jpg")
     clone = pickle.loads(pickle.dumps(exc.value))
