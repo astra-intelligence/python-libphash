@@ -11,15 +11,19 @@ SIMD-accelerated JPEG, PNG and WebP decoders built in; the wheel carries the who
 
 | Algorithm | Result | Compare with |
 |---|---|---|
-| `ahash` — average hash | 64-bit `int` | `hamming_distance`, `similarity` |
-| `dhash` — difference hash | 64-bit `int` | `hamming_distance`, `similarity` |
-| `phash` — perceptual (DCT) hash | 64-bit `int` | `hamming_distance`, `similarity` |
-| `whash` — wavelet hash | 64-bit `int` | `hamming_distance`, `similarity` |
-| `bmh` — block mean hash | `Digest`, bits | `hamming_distance`, `similarity` |
-| `mhash` — Marr-Hildreth hash | `Digest`, bits | `hamming_distance`, `similarity` |
-| `radial` — radial variance hash | `Digest`, coefficients | `radial_similarity` (= `similarity`) |
-| `color_hash` — color histogram | `Digest`, histogram | `histogram_intersection` (= `similarity`) |
-| `color_moments` — color moments | `Digest`, 16-bit vector | `l2_distance` |
+| `Algorithm.AHASH` — average hash | 64-bit `int` | `hamming_distance`, `similarity` |
+| `Algorithm.DHASH` — difference hash | 64-bit `int` | `hamming_distance`, `similarity` |
+| `Algorithm.PHASH` — perceptual (DCT) hash | 64-bit `int` | `hamming_distance`, `similarity` |
+| `Algorithm.WHASH` — wavelet hash | 64-bit `int` | `hamming_distance`, `similarity` |
+| `Algorithm.BMH` — block mean hash | `Digest`, bits | `hamming_distance`, `similarity` |
+| `Algorithm.MHASH` — Marr-Hildreth hash | `Digest`, bits | `hamming_distance`, `similarity` |
+| `Algorithm.RADIAL` — radial variance hash | `Digest`, coefficients | `radial_similarity` (= `similarity`) |
+| `Algorithm.COLOR_HASH` — color histogram | `Digest`, histogram | `histogram_intersection` (= `similarity`) |
+| `Algorithm.COLOR_MOMENTS` — color moments | `Digest`, 16-bit vector | `l2_distance` |
+
+`Algorithm` is exported from `libphash`. Wherever an algorithm is expected, its libphash
+name is accepted too (`"radial"` for `Algorithm.RADIAL`), and `str(Algorithm.RADIAL)` is
+that name.
 
 ## Installation
 
@@ -49,14 +53,15 @@ The 1.x releases were numbered independently of libphash (1.4.1 bundles libphash
 
 ```python
 import libphash as ph
+from libphash import Algorithm
 
-h1 = ph.hash("photo.jpg")                 # pHash, an int
+h1 = ph.hash("photo.jpg")                     # pHash, an int
 h2 = ph.hash("photo_small.jpg")
-ph.hamming_distance(h1, h2)               # 0..64 differing bits
-ph.similarity(h1, h2)                     # 1.0 identical, ~0.5 unrelated
+ph.hamming_distance(h1, h2)                   # 0..64 differing bits
+ph.similarity(h1, h2)                         # 1.0 identical, ~0.5 unrelated
 
-d1 = ph.hash("photo.jpg", "radial")       # a Digest
-d2 = ph.hash("photo_recompressed.jpg", "radial")
+d1 = ph.hash("photo.jpg", Algorithm.RADIAL)   # a Digest
+d2 = ph.hash("photo_recompressed.jpg", Algorithm.RADIAL)
 d1.similarity(d2) >= ph.RADIAL_PCC_THRESHOLD
 ```
 
@@ -73,7 +78,8 @@ next, so it is the faster way to hash in a loop:
 with ph.ImageContext() as ctx:
     for path in paths:
         ctx.load_file(path)
-        hashes = ctx.hashes("phash", "dhash", "mhash")   # {Algorithm: int | Digest}
+        # {Algorithm: int | Digest}
+        hashes = ctx.hashes(Algorithm.PHASH, Algorithm.DHASH, Algorithm.MHASH)
         print(ctx.width, ctx.height, hashes)
 ```
 
@@ -84,11 +90,11 @@ calls are serialized); threads that should work in parallel each use their own.
 For many files, a batch runs on libphash's own thread pool:
 
 ```python
-results = ph.hash_files(paths, ["phash", "dhash"], threads=0,
+results = ph.hash_files(paths, [Algorithm.PHASH, Algorithm.DHASH], threads=0,
                         progress=lambda done, total: print(done, "/", total))
 for r in results:
     if r.ok:
-        print(r.source, r.hashes[ph.Algorithm.PHASH])
+        print(r.source, r.hashes[Algorithm.PHASH])
     else:
         print(r.source, r.error)
 ```
@@ -99,7 +105,7 @@ Batches compute the 64-bit algorithms. `hash_buffers()` does the same for images
 
 ```python
 cfg = ph.Config(max_pixels=50_000_000, auto_orient=True, radial_sigma=2.5)
-ph.hash("photo.jpg", "radial", config=cfg)
+ph.hash("photo.jpg", Algorithm.RADIAL, config=cfg)
 ph.ImageContext(cfg)
 ph.hash_files(paths, config=cfg)
 ```
