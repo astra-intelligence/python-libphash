@@ -578,6 +578,7 @@ class _Lib:
 
 class _FFI:
     NULL: void_ptr
+    error: type[Exception]
     @overload
     def new(
         self, cdecl: Literal["char *", "const char *"], init: bytes = ..., /

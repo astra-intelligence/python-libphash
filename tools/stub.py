@@ -38,7 +38,7 @@ from native import HEADER
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from libphash._native import CType
+    from libphash._native import CField, CType
 
 ROOT = Path(__file__).resolve().parent.parent
 STUB = ROOT / "src" / "libphash" / "_native.pyi"
@@ -148,6 +148,8 @@ class _Stub:
 
     typeof: Callable[[str], CType]
     typedefs: dict[str, str]
+    #: The fields of each struct by cname, empty for an opaque struct.
+    fields: dict[str, list[tuple[str, CField]]]
     param_names: dict[str, list[str]]
     #: The pointer types the API uses.
     pointers: list[CType]
@@ -237,7 +239,7 @@ class _Stub:
 
     def _fields(self, t: CType) -> list[str]:
         out: list[str] = []
-        for fname, f in t.fields or []:
+        for fname, f in self.fields[t.cname]:
             get, put = self.value(f.type), self.accept(f.type, argument=False)
             if get == put:
                 out.append(f"{_INDENT}{fname}: {get}")
@@ -251,7 +253,7 @@ class _Stub:
         return out
 
     def _struct(self, t: CType, name: str) -> list[str]:
-        if not t.fields:
+        if not self.fields[t.cname]:
             return []  # opaque: only pointers to it exist
         return [f"class {name}(CData):", *self._fields(t)]
 
@@ -271,7 +273,7 @@ class _Stub:
         item = t.item
         if item.kind == "void":
             return []  # void_ptr is in the head
-        if item.kind == "struct" and not item.fields:
+        if item.kind == "struct" and not self.fields[item.cname]:
             return [f"class {name}(Pointer): ..."]  # opaque: no members
         if item.kind != "function":
             self.allocatable[self.cdecl(item)] = item
@@ -316,6 +318,17 @@ def generate() -> str:
 
     # Every pointer type that appears, so that ffi.new() of its item is typed.
     seen: dict[str, CType] = {}
+    fields: dict[str, list[tuple[str, CField]]] = {}
+
+    def struct_fields(t: CType) -> list[tuple[str, CField]]:
+        # CType.fields asserts that the struct is complete, and the cffi wheels for
+        # Linux keep their assertions: on an opaque struct the interpreter aborts. An
+        # opaque struct is the one ffi.sizeof() cannot measure.
+        try:
+            ffi.sizeof(t.cname)
+        except ffi.error:
+            return []
+        return t.fields or []
 
     def visit(t: CType) -> None:
         if t.cname in seen:
@@ -325,7 +338,8 @@ def generate() -> str:
             visit(t.item)
             visit(ffi.typeof(t.item.cname + " *"))
         elif t.kind == "struct":
-            for _, f in t.fields or []:
+            fields[t.cname] = struct_fields(t)
+            for _, f in fields[t.cname]:
                 visit(f.type)
         elif t.kind == "function":
             for a in (*t.args, t.result):
@@ -338,6 +352,7 @@ def generate() -> str:
     stub = _Stub(
         typeof=ffi.typeof,
         typedefs=typedefs,
+        fields=fields,
         param_names=_parameter_names(binding_cdef(HEADER)),
         pointers=[t for t in seen.values() if t.kind == "pointer"],
     )
@@ -401,7 +416,7 @@ def _lib_body(
 
 
 def _ffi_body(stub: _Stub) -> list[str]:
-    body = [f"{_INDENT}NULL: void_ptr"]
+    body = [f"{_INDENT}NULL: void_ptr", f"{_INDENT}error: type[Exception]"]
     new: list[str] = []
     cast: list[str] = []
     from_buffer: list[str] = []
