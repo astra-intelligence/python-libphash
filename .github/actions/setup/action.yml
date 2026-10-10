@@ -1,0 +1,59 @@
+# The prologue shared by the jobs of ci.yml and wheels.yml: fetch libphash and its
+# vendored decoders, install NASM where libjpeg-turbo's SIMD needs it, and set up uv
+# with the job's Python.
+#
+# It cannot include the checkout itself: a local action is read from the working copy,
+# so `actions/checkout` runs first and `uses: ./.github/actions/setup` right after it.
+name: Set up
+description: Fetch the libphash submodule, install NASM, set up uv and Python.
+
+inputs:
+  python-version:
+    description: Python version for uv to use.
+    default: '3.12'
+  submodules:
+    description: "'false' for jobs that never build or read native/libphash."
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    # libphash itself is cloned in full: its release tag is part of the check that the
+    # submodule sits on a tag (tests/test_version.py). The vendored decoders are large and
+    # only their pinned commit is read, so they come at depth 1.
+    - name: Fetch submodules
+      if: inputs.submodules == 'true'
+      shell: bash
+      run: |
+        git submodule update --init native/libphash
+        git -C native/libphash submodule update --init --recursive --depth 1
+
+    # libjpeg-turbo assembles its x86 SIMD with NASM; without it the decoder builds
+    # without SIMD, slower but with the same hashes. ARM builds use NEON intrinsics.
+    - name: Install NASM (Linux x86-64)
+      if: inputs.submodules == 'true' && runner.os == 'Linux' && runner.arch == 'X64'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y nasm
+
+    - name: Install NASM (macOS x86-64)
+      if: inputs.submodules == 'true' && runner.os == 'macOS' && runner.arch == 'X64'
+      shell: bash
+      run: brew install nasm
+
+    - name: Install NASM (Windows)
+      if: inputs.submodules == 'true' && runner.os == 'Windows'
+      shell: bash
+      run: |
+        choco install nasm --no-progress -y
+        echo "C:\\Program Files\\NASM" >> "$GITHUB_PATH"
+
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      with:
+        version: '0.12.7'
+        python-version: ${{ inputs.python-version }}
+        enable-cache: true
+        # The wheels job installs nothing through uv: cibuildwheel has its own
+        # environments, so its cache stays empty.
+        ignore-nothing-to-cache: true

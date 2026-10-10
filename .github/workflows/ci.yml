@@ -1,0 +1,146 @@
+name: CI
+
+# Triggers:
+#
+#  - push to main and to release/**: feature branches reach a release branch, and a
+#    release branch reaches main, by a local rebase and `git merge --ff-only`, never a
+#    GitHub PR, so without the push trigger nothing on those branches is built by CI.
+#  - pull_request against main or release/**: contributions from forks (CONTRIBUTING.md).
+#  - workflow_dispatch: GitHub registers it from the default branch's copy of this file.
+on:
+  push:
+    branches: [ main, 'release/**' ]
+  pull_request:
+    branches: [ main, 'release/**' ]
+  workflow_dispatch:
+
+# Read-only by default; no job of this workflow writes.
+permissions:
+  contents: read
+
+# A newer push to the same ref makes the running jobs moot.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Runners name an exact image, not a moving -latest label, so that an image change
+# shows up as an edit here rather than as a red run on unchanged code. Every job has a
+# timeout-minutes about three times its usual duration, so a hung test fails in
+# minutes instead of holding a runner for GitHub's default six hours.
+jobs:
+  # Lint reads only the sources, so it installs the locked dependencies without
+  # building the extension.
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+      with:
+        submodules: 'false'
+
+    - name: Install the locked dependencies
+      run: uv sync --locked --all-extras --no-install-project
+
+    - name: ruff check
+      run: uv run --no-sync ruff check --output-format=github .
+
+    - name: ruff format --check
+      run: uv run --no-sync ruff format --check .
+
+    - name: typos
+      run: uv run --no-sync typos
+
+  # The type checks see the package as a developer's environment has it: installed, so
+  # that the tests resolve `libphash`, with the extension built, so that the generated
+  # stub can be compared with the module it describes.
+  typecheck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Build and install (editable)
+      run: uv sync --locked --all-extras
+
+    - name: mypy (strict)
+      run: uv run --no-sync mypy
+
+    - name: basedpyright (strict)
+      run: uv run --no-sync basedpyright
+
+    - name: _native.pyi matches the built module
+      run: uv run --no-sync python tools/stub.py --check
+
+  # The test suite against an editable build, with numpy and Pillow installed. Every
+  # platform runs the oldest and the newest supported Python; Linux x86-64 runs every
+  # version in between.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025 ]
+        python: [ '3.10', '3.15' ]
+        include:
+          - { os: ubuntu-24.04, python: '3.11' }
+          - { os: ubuntu-24.04, python: '3.12' }
+          - { os: ubuntu-24.04, python: '3.13' }
+          - { os: ubuntu-24.04, python: '3.14' }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    name: test (${{ matrix.os }}, ${{ matrix.python }})
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+      with:
+        python-version: ${{ matrix.python }}
+
+    - name: Build and install (editable)
+      run: uv sync --locked --all-extras
+
+    - name: build_info
+      run: uv run --no-sync python -c "import libphash; print(libphash.build_info())"
+
+    # -rs lists every skipped test with its reason: a skip here is a fixture or an
+    # optional dependency the job failed to provide.
+    - name: pytest
+      run: uv run --no-sync pytest -rs
+
+  # The sdist and a wheel built from it, then the test suite against that wheel in a
+  # fresh environment without numpy and Pillow, which are optional at runtime.
+  sdist:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Build the sdist, and a wheel from it
+      run: uv build
+
+    - name: Install the wheel into a fresh environment
+      run: |
+        uv venv "$RUNNER_TEMP/venv"
+        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install dist/*.whl pytest hypothesis
+
+    - name: pytest
+      run: '"$RUNNER_TEMP/venv/bin/python" -m pytest -rs'
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: sdist
+        path: dist/*.tar.gz
+        if-no-files-found: error

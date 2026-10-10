@@ -70,7 +70,7 @@ def test_hashing_is_deterministic(rgb: NDArray[np.uint8]) -> None:
 def test_gray_is_rgb_with_equal_channels(gray: NDArray[np.uint8]) -> None:
     expected = outcomes(gray, GRAY)
     assert outcomes(gray[..., None], GRAY) == expected
-    assert outcomes(np.repeat(gray[..., None], 3, axis=2), GRAY) == expected
+    assert outcomes(gray[..., None].repeat(3, axis=2), GRAY) == expected
     for algorithm in COLOR:
         with pytest.raises(ph.RequiresColorError):
             ph.hash(gray, algorithm)
@@ -79,7 +79,8 @@ def test_gray_is_rgb_with_equal_channels(gray: NDArray[np.uint8]) -> None:
 @examples
 @given(images(3))
 def test_opaque_alpha_changes_nothing(rgb: NDArray[np.uint8]) -> None:
-    rgba = np.concatenate([rgb, np.full((*rgb.shape[:2], 1), 255, np.uint8)], axis=2)
+    rgba = np.full((*rgb.shape[:2], 4), 255, np.uint8)
+    rgba[..., :3] = rgb
     assert outcomes(rgba) == outcomes(rgb)
 
 
@@ -87,7 +88,7 @@ def test_opaque_alpha_changes_nothing(rgb: NDArray[np.uint8]) -> None:
 @given(images(3))
 def test_bgr_is_reversed_rgb(rgb: NDArray[np.uint8]) -> None:
     assert outcomes(
-        np.ascontiguousarray(np.flip(rgb, 2)), channel_order="bgr"
+        np.ascontiguousarray(rgb[..., ::-1]), channel_order="bgr"
     ) == outcomes(rgb)
 
 
