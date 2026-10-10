@@ -153,3 +153,14 @@ def test_command_only_measures_the_named_contenders(tmp_path: Path) -> None:
     result = json.loads((tmp_path / "speed.json").read_text(encoding="utf-8"))
     keys = {c["key"] for c in result["cases"] if c["how"] == ""}
     assert keys == {"libphash/pHash"}
+
+
+def test_overhead_needs_no_corpus(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fetch(_cache: str | None = None) -> tuple[list[str], list[str]]:
+        raise AssertionError("the overhead benchmark fetched the corpus")
+
+    monkeypatch.setattr("fetch_corpus.fetch", fetch)
+    assert cli.main(["overhead", "--quick", "--out", str(tmp_path)]) == 0
+    assert "Corpus:" not in (tmp_path / "overhead.md").read_text(encoding="utf-8")

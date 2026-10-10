@@ -71,20 +71,21 @@ def _write(out: Path, name: str, result: DataclassInstance, markdown: str) -> No
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the benchmarks ``argv`` asks for; the exit status."""
     args = _parser().parse_args(argv)
+    run = args.benchmark
+    # The overhead benchmark times the test suite's photograph, not the corpus.
+    on_corpus = run != "overhead" and not args.images
     try:
-        paths = list(args.images) if args.images else photos(args.cache)
+        paths = photos(args.cache) if on_corpus else list(args.images or [])
     except CorpusError as e:
         print(f"error: {e}", file=sys.stderr)  # noqa: T201
         return 1
     if args.limit is not None:
         paths = paths[: args.limit]
-    corpus = None if args.images else MIRROR_COMMIT
-    env = environment(corpus)
+    env = environment(MIRROR_COMMIT if on_corpus else None)
     chosen = contenders()
     if args.only:
         chosen = [c for c in chosen if c.key in set(args.only)]
     min_runs, min_seconds = (1, 0.0) if args.quick else (MIN_RUNS, MIN_SECONDS)
-    run = args.benchmark
     if run in ("quality", "all"):
         q = measure_quality(paths, chosen, workers=args.workers)
         _write(args.out, "quality", q, quality_md(q, env))

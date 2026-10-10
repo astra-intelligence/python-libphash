@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 from .quality import summarize
@@ -186,7 +187,7 @@ def overhead_md(result: OverheadResult, env: Environment) -> str:
     return "\n".join(
         [
             "## What the binding adds\n",
-            environment_md(env),
+            environment_md(dataclasses.replace(env, corpus=None)),
             "Each job on a 400×400 JPEG, through the binding and as the bare C call "
             "through cffi; per call or per image.\n",
             table(["Job", "How", "Median", "Minimum"], rows),
