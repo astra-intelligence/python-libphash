@@ -1,0 +1,69 @@
+name: Corpus
+
+# The photo corpus of libphash's site, two hundred photographs of about a megapixel,
+# hashed by the binding and by libphash called from C (tests/test_corpus.py). The
+# photographs come from a fixed commit of libphash-site-corpus, which the submodule's
+# fetch_corpus.py names and checks file by file against its SHA-256. The job reads the
+# network, so it is not part of ci.yml: it runs weekly, by hand, and when the libphash
+# submodule, the test or this workflow changes.
+on:
+  push:
+    branches: [ main, 'release/**' ]
+    paths: &corpus-paths
+      - native/libphash
+      - tests/test_corpus.py
+      - .github/workflows/corpus.yml
+  pull_request:
+    branches: [ main, 'release/**' ]
+    paths: *corpus-paths
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  corpus:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    # The cache is keyed on the commit of libphash-site-corpus: a new corpus is a new
+    # commit, and fetch_corpus.py checks every cached file against its digest anyway.
+    - name: Corpus commit
+      id: mirror
+      run: |
+        commit=$(sed -n 's/^MIRROR_COMMIT = "\([0-9a-f]*\)"$/\1/p' native/libphash/tools/site/fetch_corpus.py)
+        test -n "$commit"
+        echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+    # A poisoned cache cannot pass: fetch_corpus.py checks each photograph against the
+    # manifest digest, and the job publishes nothing.
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0 # zizmor: ignore[cache-poisoning]
+      with:
+        path: ${{ runner.temp }}/corpus
+        key: photo-corpus-${{ steps.mirror.outputs.commit }}
+
+    - name: Fetch the photo corpus (every photograph, or fail)
+      run: |
+        python3 native/libphash/tools/site/fetch_corpus.py fetch --strict \
+          --cache "$RUNNER_TEMP/corpus" > "$RUNNER_TEMP/corpus.txt"
+
+    - name: Build and install (editable)
+      run: uv sync --locked --all-extras
+
+    - name: pytest
+      env:
+        LIBPHASH_CORPUS: ${{ runner.temp }}/corpus.txt
+        LIBPHASH_REQUIRE_C_REFERENCE: '1'
+      run: uv run --no-sync pytest -rs tests/test_corpus.py

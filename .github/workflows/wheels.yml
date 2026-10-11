@@ -4,8 +4,11 @@ name: Wheels
 # pyproject.toml, which also says which platforms get wheels). The code itself is
 # tested on every platform by ci.yml; what only a wheel build exercises is the build:
 # the manylinux images, the free-threaded builds, the repair of each wheel and the
-# cibuildwheel configuration. So the workflow runs when a file the build reads
-# changes, and by hand.
+# cibuildwheel configuration. Beyond each wheel's test suite, every wheel writes the
+# hashes of every fixture, and the tables of all platforms must be the same byte for
+# byte; and libphash configured without libjpeg-turbo, decoding JPEG with stb_image,
+# passes the suite with its own golden hashes. So the workflow runs when a file the
+# build reads changes, and by hand.
 on:
   push:
     branches: [ main, 'release/**' ]
@@ -16,6 +19,7 @@ on:
       - tools/cdef.py
       - tools/ffi.py
       - tools/native.py
+      - tools/hash_table.py
       - native/libphash
       - .github/actions/setup/**
       - .github/workflows/wheels.yml
@@ -61,3 +65,76 @@ jobs:
         name: wheels-${{ matrix.platform }}
         path: wheelhouse/*.whl
         if-no-files-found: error
+
+    # Each wheel with the Python it is for, installed by uv on the runner itself: every
+    # wheel is for the runner's own architecture, and a manylinux wheel runs on Ubuntu.
+    # The ABI tag names the Python (cp312 -> 3.12, cp314t -> 3.14t).
+    - name: Hash tables of the wheels
+      shell: bash
+      run: |
+        mkdir tables
+        for wheel in wheelhouse/*.whl; do
+          name=$(basename "$wheel" .whl)
+          abi=$(echo "$name" | cut -d- -f4)
+          uv run --no-project --python "${abi:2:1}.${abi:3}" --with "$wheel" \
+            python tools/hash_table.py native/libphash/tests/data > "tables/$name.txt"
+        done
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: hash-tables-${{ matrix.platform }}
+        path: tables/*.txt
+        if-no-files-found: error
+
+  # The tables of every wheel of every platform, compared with one another.
+  parity:
+    needs: wheels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        pattern: hash-tables-*
+        merge-multiple: true
+        path: tables
+
+    - name: Every wheel gives the same hashes
+      shell: bash
+      run: |
+        tables=(tables/*.txt)
+        status=0
+        for t in "${tables[@]}"; do
+          if ! cmp -s "${tables[0]}" "$t"; then
+            echo "::error::$(basename "$t") differs from $(basename "${tables[0]}")"
+            diff "${tables[0]}" "$t" | head -40
+            status=1
+          fi
+        done
+        echo "${#tables[@]} tables of $(wc -l < "${tables[0]}") lines"
+        exit $status
+
+  # libphash configured without libjpeg-turbo decodes JPEG with stb_image, as its own CI
+  # tests: the suite picks the stb golden file and the parity tests build their C
+  # reference against the same install.
+  stb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    name: test (JPEG by stb_image)
+    env:
+      LIBPHASH_CMAKE_ARGS: -DPHASH_USE_LIBJPEG_TURBO=OFF
+      LIBPHASH_REQUIRE_C_REFERENCE: '1'
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Build and install (editable)
+      run: uv sync --locked --all-extras
+
+    - name: build_info
+      run: uv run --no-sync python -c "import libphash; print(libphash.build_info())"
+
+    - name: pytest
+      run: uv run --no-sync pytest -rs
