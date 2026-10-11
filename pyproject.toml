@@ -27,7 +27,7 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "hypothesis", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'"]
+dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'"]
 
 [tool.setuptools]
 zip-safe = false
@@ -49,7 +49,7 @@ build-verbosity = 1
 skip = ["*-musllinux_*"]
 # numpy and Pillow are optional at runtime; with them the array and Pillow tests run
 # against the wheel too. The sdist job of CI runs the suite without them.
-test-requires = ["pytest", "hypothesis", "numpy", "Pillow"]
+test-requires = ["pytest", "pytest-timeout", "hypothesis", "numpy", "Pillow"]
 test-command = "pytest {project}/tests -rs"
 
 # CMake and Ninja come from build-system.requires. nasm gives libjpeg-turbo its x86
@@ -75,6 +75,13 @@ environment = { PATH = 'C:\\Program Files\\NASM;$PATH' }
 [tool.pytest.ini_options]
 # mutmut keeps a copy of the tests in mutants/.
 testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+# A warning is a failure: deprecations surface in the run that causes them.
+filterwarnings = ["error"]
+# A hung test fails on its own instead of holding the job until its timeout.
+# pytest-randomly, where installed, runs the tests in a random order and prints the
+# seed, so that a test depending on another one's leftovers shows up.
+timeout = 300
 
 # Branch coverage of the package, measured against the editable build. File names are
 # stored relative to the checkout, so the data files of every platform's job combine

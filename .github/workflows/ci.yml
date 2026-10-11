@@ -188,7 +188,7 @@ jobs:
     - name: Install the wheel into a fresh environment
       run: |
         uv venv "$RUNNER_TEMP/venv"
-        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install dist/*.whl pytest hypothesis
+        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install dist/*.whl pytest pytest-timeout hypothesis
 
     - name: pytest
       run: '"$RUNNER_TEMP/venv/bin/python" -m pytest -rs'
