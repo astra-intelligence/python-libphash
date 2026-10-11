@@ -21,6 +21,7 @@ The project is developed with [uv](https://docs.astral.sh/uv/) (`.python-version
 git submodule update --init --recursive   # libphash and its vendored decoders
 uv sync --all-extras --inexact            # builds the extension in editable mode
 uv run pytest                             # tests in tests/, fixtures from native/libphash/tests/data
+uv run coverage run -m pytest && uv run coverage combine && uv run coverage report  # 100 % in CI, combined over platforms
 uv run ruff check . && uv run ruff format --check .
 uv run mypy && uv run basedpyright                         # both strict, over src/, tests/, tools/
 uv run python tools/stub.py --check                        # _native.pyi matches the built module
@@ -60,7 +61,7 @@ Typing: the package passes mypy and basedpyright in strict mode, and every type 
 Lint: ruff with a broad rule set and pep257 docstrings (`pyproject.toml`); every exception to a rule is a per-file ignore with a comment or a `# noqa: CODE -- reason`, never a bare `noqa`.
 - **`tests/`** — pytest suite (`test_cdef.py` fails when a header function is neither wrapped nor listed as deliberately unwrapped).
   `test_c_parity.py` builds `tests/c/reference.c` (through `c_reference.py`) against the libphash install of `tools/native.py` and requires the binding's hashes and error codes to equal C's for every fixture, setting and pixel layout; without the install or CMake it skips, and CI sets `LIBPHASH_REQUIRE_C_REFERENCE=1` so that it fails instead. `test_corpus.py` does the same for libphash's 200-photo site corpus and is collected only when `LIBPHASH_CORPUS` names the list of fetched photos.
-- **`.github/workflows/`** — `ci.yml` (lint, types, tests on every platform, sdist) on every push and PR; `wheels.yml` only when a build file changes: every wheel by cibuildwheel (configuration in `pyproject.toml`), each wheel's hash table (`tools/hash_table.py`) compared across all platforms byte for byte, and a build with JPEG decoded by stb_image; `corpus.yml` (the photo corpus, network) weekly, by hand and when the submodule changes. `libphash-release-check.yml` opens a tracking issue weekly when `native/libphash` is behind libphash's newest release tag.
+- **`.github/workflows/`** — `ci.yml` (lint, types, tests on every platform, their line and branch coverage combined and held at 100 %, sdist) on every push and PR; `wheels.yml` only when a build file changes: every wheel by cibuildwheel (configuration in `pyproject.toml`), each wheel's hash table (`tools/hash_table.py`) compared across all platforms byte for byte, and a build with JPEG decoded by stb_image; `corpus.yml` (the photo corpus, network) weekly, by hand and when the submodule changes. `libphash-release-check.yml` opens a tracking issue weekly when `native/libphash` is behind libphash's newest release tag.
 
 Code, comments, docstrings and tracked documentation are in English.
 
