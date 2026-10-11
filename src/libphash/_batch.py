@@ -15,10 +15,10 @@ from typing import (
 
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
 from ._config import Config, apply_config, new_context
-from ._errors import PH_ERR_CANCELLED, PH_ERR_IO, PH_SUCCESS, check, make_error
+from ._errors import PH_ERR_CANCELLED, PH_SUCCESS, check, make_error
 from ._native import ffi, lib
 from ._sources import READ_FILES_IN_PYTHON, StrPath, encode_path, read_file
-from .exceptions import InvalidArgumentError, PhashError
+from .exceptions import ImageIOError, InvalidArgumentError, PhashError
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -137,24 +137,16 @@ def _files_via_buffers(
         failed: dict[int, PhashError] = {}
         for i, p in enumerate(part):
             try:
-                content = read_file(p)
-                if not content:
-                    raise OSError(0, "empty file")
-                data.append(content)
-            except OSError as e:  # noqa: PERF203 -- each file fails on its own
-                failed[i] = make_error(PH_ERR_IO, detail=f"{e.strerror}: {p!s}", path=p)
+                data.append(read_file(p))
+            except ImageIOError as e:  # noqa: PERF203 -- each file fails on its own
+                failed[i] = e
                 data.append(b"\0")  # placeholder; its result is replaced below
-        offset = start
-
-        def chunk_progress(done: int, _total: int, offset: int = offset) -> bool | None:
-            return progress(offset + done, total) if progress else None
-
         part_results = hash_buffers(
             data,
             algos,
             config=config,
             threads=threads,
-            progress=chunk_progress if progress else None,
+            progress=_shifted(progress, start, total),
         )
         for i, (p, r) in enumerate(zip(part, part_results, strict=True)):
             if i in failed:
@@ -164,6 +156,15 @@ def _files_via_buffers(
             if r.error is not None and r.error.code == PH_ERR_CANCELLED:
                 stopped = True
     return results
+
+
+def _shifted(
+    progress: ProgressCallback | None, offset: int, total: int
+) -> ProgressCallback | None:
+    """Report a chunk's progress as progress through the whole batch."""
+    if progress is None:
+        return None
+    return lambda done, _total: progress(offset + done, total)
 
 
 def _cancelled(source: _S) -> BatchResult[_S]:

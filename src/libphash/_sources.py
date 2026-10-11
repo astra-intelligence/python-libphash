@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, Protocol, Union, cast, runtime_checkable
 
+from ._errors import PH_ERR_IO, make_error
 from ._native import ffi
 
 if TYPE_CHECKING:
@@ -49,8 +50,6 @@ class PILImage(Protocol):
     def mode(self) -> str: ...
     @property
     def size(self) -> tuple[int, int]: ...
-    @property
-    def info(self) -> Mapping[Any, Any]: ...
     def tobytes(self) -> bytes: ...
     def convert(self, mode: str) -> PILImage: ...
 
@@ -92,7 +91,7 @@ def encode_path(path: StrPath) -> bytes:
 
 
 def is_pil_image(obj: object) -> bool:
-    module = type(obj).__module__ or ""
+    module = str(type(obj).__module__)
     return (
         module.startswith("PIL.") and hasattr(obj, "mode") and hasattr(obj, "tobytes")
     )
@@ -102,7 +101,8 @@ def is_pil_image(obj: object) -> bool:
 class Pixels:
     """Arguments for ph_load_from_pixels().
 
-    ``keepalive`` holds whatever must stay alive during the call.
+    The pointer is either ``ffi.from_buffer()``'s, which keeps its object alive, or an
+    array's own address, valid while the caller holds the array.
     """
 
     pointer: char_ptr | uint8_t_ptr
@@ -110,10 +110,9 @@ class Pixels:
     height: int
     channels: int
     stride: int
-    keepalive: object
 
 
-def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> Pixels:
+def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder) -> Pixels:
     """Read the pixels of an 8-bit array of shape (h, w) or (h, w, 1|3|4).
 
     A numpy array whose rows are spaced apart (a crop, ``arr[10:-10, 5:-5]``) is passed
@@ -127,20 +126,20 @@ def pixels_from_array(obj: PixelArray, channel_order: ChannelOrder = "rgb") -> P
         return _from_array_interface(obj, iface, channel_order)
     try:
         # Any object with the buffer protocol and a shape, beyond what PixelArray names.
-        view = obj if isinstance(obj, memoryview) else memoryview(cast("Buffer", obj))
+        view = memoryview(cast("Buffer", obj))
     except TypeError:
         raise TypeError(
             "expected an array of pixels (numpy, memoryview with a shape), "
             f"got {type(obj).__name__}"
         ) from None
-    if view.format not in ("B", "c") or view.itemsize != 1:
+    if view.format not in ("B", "c"):
         raise TypeError(
             f"pixels must be 8-bit unsigned (format 'B'), got format {view.format!r}; "
             "convert the array to uint8 first"
         )
     height, width, channels = _shape(tuple(view.shape or ()))
     if view.c_contiguous and channel_order == "rgb":
-        return Pixels(ffi.from_buffer(view), width, height, channels, 0, view)
+        return Pixels(ffi.from_buffer(view), width, height, channels, 0)
     data = view.tobytes()
     return _packed(data, width, height, channels, channel_order)
 
@@ -172,7 +171,7 @@ def _from_array_interface(
     )
     if zero_copy and isinstance(address, int):
         pointer = ffi.cast("const uint8_t *", address)
-        return Pixels(pointer, width, height, channels, row, obj)
+        return Pixels(pointer, width, height, channels, row)
     # Any other layout: one C-ordered copy through the buffer protocol.
     try:
         packed = memoryview(cast("Buffer", obj)).tobytes()
@@ -195,7 +194,7 @@ def _packed(
             data[0::channels],
         )
         data = bytes(swapped)
-    return Pixels(ffi.from_buffer(data), width, height, channels, 0, data)
+    return Pixels(ffi.from_buffer(data), width, height, channels, 0)
 
 
 def _shape(shape: tuple[int, ...]) -> tuple[int, int, int]:
@@ -216,9 +215,10 @@ def pixels_from_pil(img: PILImage) -> Pixels:
     """Read the pixels of a Pillow image.
 
     ``L``, ``RGB`` and ``RGBA`` are read as they are. ``1`` becomes ``L``; palette and
-    gray-with-alpha images become ``RGBA`` (``RGB`` when they carry no transparency);
-    ``CMYK``, ``YCbCr``, ``HSV`` and ``LAB`` become ``RGB``. 16-bit, 32-bit integer and
-    float modes are refused: there is no single right way to bring them to 8 bits.
+    gray-with-alpha images become ``RGBA``, which hashes as ``RGB`` where every pixel is
+    opaque; ``CMYK``, ``YCbCr``, ``HSV`` and ``LAB`` become ``RGB``. 16-bit, 32-bit
+    integer and float modes are refused: there is no single right way to bring them to
+    8 bits.
     Pillow does not apply the EXIF orientation to the pixels; pass the image through
     ``PIL.ImageOps.exif_transpose`` first if it matters.
     """
@@ -232,8 +232,7 @@ def pixels_from_pil(img: PILImage) -> Pixels:
         if mode == "1":
             target = "L"
         elif mode in ("P", "PA", "LA", "La", "RGBa"):
-            has_alpha = mode != "P" or "transparency" in img.info
-            target = "RGBA" if has_alpha else "RGB"
+            target = "RGBA"
         else:
             target = "RGB"
         img = img.convert(target)
@@ -241,9 +240,20 @@ def pixels_from_pil(img: PILImage) -> Pixels:
     width, height = img.size
     data = img.tobytes()
     channels = _PIL_DIRECT[mode]
-    return Pixels(ffi.from_buffer(data), width, height, channels, 0, data)
+    return Pixels(ffi.from_buffer(data), width, height, channels, 0)
 
 
 def read_file(path: StrPath) -> bytes:
-    with open(path, "rb") as f:
-        return f.read()
+    """Read an image file for the C library to load from memory.
+
+    A file that cannot be read, or is empty, raises the ImageIOError that the C
+    library's own open would.
+    """
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        raise make_error(PH_ERR_IO, detail=f"{e.strerror}: {path!s}", path=path) from e
+    if not data:
+        raise make_error(PH_ERR_IO, detail=f"empty file: {path!s}", path=path)
+    return data

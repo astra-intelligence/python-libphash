@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal, NoReturn, cast, overload
 from ._algorithms import Algorithm, AlgorithmLike, to_algorithm, uint64_flags
 from ._config import Config, apply_config, new_context
 from ._digest import Digest, digest_from_c
-from ._errors import PH_ERR_IO, PH_SUCCESS, make_error
+from ._errors import PH_SUCCESS, make_error
 from ._native import ffi, lib
 from ._sources import (
     READ_FILES_IN_PYTHON,
@@ -189,24 +189,13 @@ class ImageContext:
         """Load an image file. On failure the context holds no image."""
         encoded = encode_path(path)
         if READ_FILES_IN_PYTHON:
-            self._load_file_in_python(path)
+            self.load_bytes(read_file(path))
             return
         with self._lock:
             ptr = self._live()
             code = lib.ph_load_from_file(ptr, encoded)
             if code != PH_SUCCESS:
                 raise make_error(code, detail=self._last_message(ptr), path=path)
-
-    def _load_file_in_python(self, path: StrPath) -> None:
-        try:
-            data = read_file(path)
-        except OSError as e:
-            raise make_error(
-                PH_ERR_IO, detail=f"{e.strerror}: {path!s}", path=path
-            ) from e
-        if not data:
-            raise make_error(PH_ERR_IO, detail=f"empty file: {path!s}", path=path)
-        self.load_bytes(data)
 
     def load_bytes(self, data: bytes | bytearray | memoryview) -> None:
         """Load an encoded image (JPEG, PNG, WebP, ...) from memory, without a copy.
