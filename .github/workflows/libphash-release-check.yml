@@ -1,0 +1,91 @@
+name: libphash release check
+
+# native/libphash is pinned to a release tag of libphash, and each libphash release gets
+# its binding (X.Y.Z.0). Dependabot cannot watch for one: its gitsubmodule updates follow
+# a branch's newest commit, not its tags. So this compares, every week, the pinned commit
+# with libphash's newest release tag (vX.Y.Z, no pre-release) and opens or updates a
+# tracking issue when the submodule is behind or not on a release tag, rather than
+# failing the run: a bump is a release of the binding. A check that cannot run fails.
+#
+# The submodule is not checked out: the pinned commit is the gitlink in the tree, and
+# the tags are read with git ls-remote.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+# Two overlapping runs would both find no open issue and both open one.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    # An annotated tag is listed twice, the tag object and, peeled (^{}), its commit;
+    # both lines are kept, and the pinned commit matches the peeled one.
+    - name: Compare the submodule with libphash's newest release
+      id: check
+      run: |
+        set -euo pipefail
+        url=$(git config -f .gitmodules submodule.native/libphash.url)
+        pinned=$(git ls-tree HEAD native/libphash | awk '{print $3}')
+        tags=$(git ls-remote --tags "$url" 'v*')
+        test -n "$pinned" && test -n "$tags"
+        releases=$(echo "$tags" | awk '{
+          tag = $2; sub(/^refs\/tags\//, "", tag); sub(/\^\{\}$/, "", tag)
+          if (tag ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/) print tag, $1
+        }' | sort -V)
+        newest=$(echo "$releases" | tail -1 | cut -d' ' -f1)
+        test -n "$newest"
+        current=$(echo "$releases" | awk -v c="$pinned" '$2 == c {print $1}' | tail -1)
+        summary="native/libphash is at $pinned (${current:-not a release tag}); libphash's newest release is $newest."
+        echo "$summary"
+        echo "summary=$summary" >> "$GITHUB_OUTPUT"
+        if [ "$current" = "$newest" ]; then
+          echo "behind=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "behind=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Open or update tracking issue
+      if: steps.check.outputs.behind == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        SUMMARY: ${{ steps.check.outputs.summary }}
+      run: |
+        title="native/libphash is not on libphash's newest release"
+        body="$RUNNER_TEMP/libphash-release-issue.md"
+        {
+          echo "Detected by the scheduled \`libphash release check\` workflow."
+          echo
+          echo "$SUMMARY"
+          cat <<'EOF'
+
+        A binding for the new release moves the submodule to its tag, sets the version to
+        X.Y.Z.0, adds the CHANGELOG entry and runs CI, the wheels workflow included (it
+        runs when the submodule changes).
+        EOF
+        } > "$body"
+        # The label is created on first use, so the workflow does not depend on
+        # repository settings made by hand.
+        gh label create dependencies --color 0366d6 \
+          --description "Vendored code and dependency updates" 2> /dev/null || true
+        existing=$(gh issue list --search "in:title \"$title\"" --state open \
+          --json number --jq '.[0].number')
+        if [ -n "$existing" ]; then
+          gh issue comment "$existing" --body-file "$body"
+        else
+          gh issue create --title "$title" --body-file "$body" --label dependencies
+        fi
