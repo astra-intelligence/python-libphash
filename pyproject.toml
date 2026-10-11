@@ -27,7 +27,7 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "hypothesis", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
+dev = ["pytest", "hypothesis", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
 
 [tool.setuptools]
 zip-safe = false
@@ -71,6 +71,25 @@ before-all = "choco install nasm --no-progress -y"
 # cibuildwheel reads the value with shell quoting, which takes a backslash as an
 # escape; each one is doubled.
 environment = { PATH = 'C:\\Program Files\\NASM;$PATH' }
+
+# Branch coverage of the package, measured against the editable build. File names are
+# stored relative to the checkout, so the data files of every platform's job combine
+# into one report; branches that run only on Windows or only on POSIX count once
+# combined, and the threshold applies to the combined report.
+[tool.coverage.run]
+branch = true
+source = ["src/libphash"]
+relative_files = true
+parallel = true
+
+[tool.coverage.paths]
+source = ["src/libphash/", "src\\libphash\\"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+exclude_also = ["if TYPE_CHECKING:"]
 
 [tool.mypy]
 strict = true
