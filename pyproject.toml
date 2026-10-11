@@ -75,7 +75,9 @@ environment = { PATH = 'C:\\Program Files\\NASM;$PATH' }
 # Branch coverage of the package, measured against the editable build. File names are
 # stored relative to the checkout, so the data files of every platform's job combine
 # into one report; branches that run only on Windows or only on POSIX count once
-# combined, and the threshold applies to the combined report.
+# combined, and the threshold applies to the combined report. The batch callbacks run
+# on libphash's worker threads, which Python 3.14's sys.monitoring sees and the
+# settrace of older versions does not: those lines count from the 3.14+ jobs.
 [tool.coverage.run]
 branch = true
 source = ["src/libphash"]

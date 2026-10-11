@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 import pytest
 from conftest import data
@@ -83,3 +83,43 @@ def test_wrong_dtype_and_shape() -> None:
 def test_pixels_ignore_auto_orient() -> None:
     arr = np.asarray(pil("photo.png").convert("RGB"))
     assert ph.hash(arr, config=ph.Config(auto_orient=False)) == ph.hash(arr)
+
+
+def test_channel_order_is_checked() -> None:
+    rgb = np.asarray(pil("png/rgb8.png"))
+    with pytest.raises(
+        ValueError, match="channel_order must be 'rgb' or 'bgr', got 'RGB'"
+    ):
+        ph.ImageContext().load_pixels(rgb, channel_order=cast("ph.ChannelOrder", "RGB"))
+
+
+def test_not_an_array() -> None:
+    with pytest.raises(TypeError, match="expected an array of pixels"):
+        ph.ImageContext().load_pixels(cast("ph.PixelArray", object()))
+
+
+def test_memoryview_layouts() -> None:
+    rgb = np.asarray(pil("png/rgb8.png"))
+    with pytest.raises(TypeError, match="format 'H'"):
+        ph.hash(memoryview(np.zeros((8, 8), dtype=np.uint16)))
+    # A gapped view and BGR order are copied once.
+    gapped = memoryview(rgb[:, ::2])
+    assert ph.hash(gapped) == ph.hash(np.ascontiguousarray(rgb[:, ::2]))
+    with ph.ImageContext() as ctx:
+        ctx.load_pixels(memoryview(np.ascontiguousarray(rgb[:, :, ::-1])), "bgr")
+        assert ctx.phash() == ph.hash(rgb)
+
+
+class _Interface:
+    """An array interface whose data is not an address and has no buffer."""
+
+    __array_interface__: ClassVar[dict[str, object]] = {
+        "version": 3,
+        "typestr": "|u1",
+        "shape": (8, 8, 3),
+    }
+
+
+def test_array_interface_without_data() -> None:
+    with pytest.raises(TypeError, match="does not expose its data"):
+        ph.hash(cast("ph.PixelArray", _Interface()))

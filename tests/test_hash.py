@@ -1,5 +1,6 @@
 import io
 from pathlib import Path
+from typing import cast
 
 import pytest
 from conftest import data
@@ -124,3 +125,12 @@ def test_info() -> None:
         assert ph.can_decode(fmt) is True
     with pytest.raises(ValueError, match="fmt"):
         ph.can_decode("gif")  # type: ignore[arg-type]  # an untyped caller's mistake
+
+
+def test_algorithm_as_its_c_value(photo: Path) -> None:
+    # Untyped callers may pass the C enum's value.
+    dhash = cast("ph.AlgorithmLike", int(ph.Algorithm.DHASH))
+    assert ph.hash(photo, dhash) == ph.hash(photo, "dhash")
+    for value in (999, True, 1.0):
+        with pytest.raises(ph.InvalidArgumentError, match="expected an Algorithm"):
+            ph.hash(photo, cast("ph.AlgorithmLike", value))

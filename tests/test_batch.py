@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import signal
+import socket
 import sys
 import threading
 from typing import TYPE_CHECKING
@@ -150,3 +151,46 @@ def test_batches_from_several_threads_at_once() -> None:
     for i, result in results.items():
         assert [r.hashes for r in result] == [r.hashes for r in expected] * 3
         assert progress[i] == list(range(1, len(paths()) * 3 + 1))
+
+
+def test_no_algorithm() -> None:
+    with pytest.raises(ph.InvalidArgumentError, match="no algorithm given"):
+        ph.hash_files(paths(), [])
+
+
+def test_progress_is_not_called_after_it_stops_the_batch() -> None:
+    # Items already running on other workers finish, but do not report.
+    calls: list[int] = []
+
+    def stop(d: int, _t: int) -> bool:
+        calls.append(d)
+        return False
+
+    results = ph.hash_files(paths() * 10, threads=4, progress=stop)
+    assert calls == [1]
+    assert any(isinstance(r.error, ph.BatchCancelledError) for r in results)
+
+
+def test_batch_without_the_wakeup_fd(
+    monkeypatch: pytest.MonkeyPatch, photo_bytes: bytes
+) -> None:
+    def refuse(_fd: int, /, **_kwargs: object) -> int:
+        raise ValueError("set_wakeup_fd only works in main thread")
+
+    monkeypatch.setattr(signal, "set_wakeup_fd", refuse)
+    [result] = ph.hash_buffers([photo_bytes], "ahash")
+    assert result.hashes == {ph.Algorithm.AHASH: ph.hash(photo_bytes, "ahash")}
+
+
+def test_batch_leaves_an_owned_wakeup_fd_alone(photo_bytes: bytes) -> None:
+    # An event loop that set the wakeup fd keeps it through the batch.
+    reader, writer = socket.socketpair()
+    writer.setblocking(False)
+    previous = signal.set_wakeup_fd(writer.fileno())
+    try:
+        [result] = ph.hash_buffers([photo_bytes], "ahash")
+        assert result.ok
+    finally:
+        assert signal.set_wakeup_fd(previous) == writer.fileno()
+        reader.close()
+        writer.close()

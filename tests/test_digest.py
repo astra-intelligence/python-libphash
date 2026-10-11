@@ -1,6 +1,7 @@
 import math
 import pickle
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -127,3 +128,16 @@ def test_digest_info_matches_computed_digests(photo: Path) -> None:
         else:
             assert (size, kind) == (len(value), value.kind)
     assert ph.digest_info("bmh", ph.Config(bmh_block_size=8)) == (8, DigestKind.BITS)
+
+
+def test_comparing_with_other_types() -> None:
+    d = Digest(b"\1", DigestKind.BITS)
+    assert d != b"\1"
+    assert (d == 1) is False
+    with pytest.raises(TypeError, match="expected a Digest, got bytes"):
+        d.hamming_distance(cast("Digest", b"\1"))
+
+
+def test_hash_from_hex_rejects_garbage() -> None:
+    with pytest.raises(ph.InvalidArgumentError, match="parsing hash 'xyz'"):
+        ph.hash_from_hex("xyz")

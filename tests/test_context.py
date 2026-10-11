@@ -3,6 +3,7 @@ import gc
 import pickle
 import threading
 from pathlib import Path
+from typing import cast
 
 import pytest
 from conftest import data
@@ -164,3 +165,43 @@ def test_close_while_other_threads_hash(photo: Path) -> None:
     for t in threads:
         t.join()
     assert errors == []
+
+
+def test_config_property() -> None:
+    config = ph.Config(phash_reduction_size=4)
+    assert ph.ImageContext(config).config is config
+    assert ph.ImageContext().config == ph.Config()
+    with pytest.raises(TypeError, match="expected a Config, got dict"):
+        ph.ImageContext(cast("ph.Config", {}))
+
+
+def test_load_bytes_needs_a_buffer() -> None:
+    with pytest.raises(TypeError, match="bytes-like encoded image data, got str"):
+        ph.ImageContext().load_bytes(cast("bytes", "photo.jpeg"))
+
+
+class _Reader:
+    def __init__(self, data: object) -> None:
+        self.data = data
+
+    def read(self) -> bytes:
+        return cast("bytes", self.data)
+
+
+def test_load_fileobj_takes_what_read_returns(photo_bytes: bytes) -> None:
+    expected = ph.hash(photo_bytes)
+    for content in (photo_bytes, bytearray(photo_bytes), memoryview(photo_bytes)):
+        with ph.ImageContext() as ctx:
+            ctx.load_fileobj(_Reader(content))
+            assert ctx.phash() == expected
+    with pytest.raises(TypeError, match=r"_Reader.read\(\) returned str, not bytes"):
+        ph.ImageContext().load_fileobj(_Reader("text"))
+
+
+def test_hashes_of_digests_only(photo: Path) -> None:
+    with ph.ImageContext() as ctx:
+        ctx.load(photo)
+        assert ctx.hashes("radial", "bmh") == {
+            ph.Algorithm.RADIAL: ctx.radial(),
+            ph.Algorithm.BMH: ctx.bmh(),
+        }
