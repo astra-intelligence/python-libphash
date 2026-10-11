@@ -123,6 +123,6 @@ def test_python_read_path_cancels_across_chunks(
     path = tmp_path / "a.jpg"
     path.write_bytes(photo_bytes)
     results = ph.hash_files([path] * 300, threads=1, progress=lambda d, _t: d < 100)
-    assert len(results) == 300
+    assert [r.source for r in results] == [path] * 300
     assert sum(r.ok for r in results) == 100
     assert all(isinstance(r.error, ph.BatchCancelledError) for r in results[100:])

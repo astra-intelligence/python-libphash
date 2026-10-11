@@ -83,7 +83,7 @@ def test_hex_encoding(
     context: str,
 ) -> None:
     monkeypatch.setattr(libphash._digest, "lib", failing(function))
-    with pytest.raises(ph.InvalidArgumentError, match=context):
+    with pytest.raises(ph.InvalidArgumentError, match=f"^{context}: "):
         call()
 
 
