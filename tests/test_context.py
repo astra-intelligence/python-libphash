@@ -136,3 +136,31 @@ def test_own_context_per_thread_matches_sequential(photo: Path) -> None:
         t.join()
     for out in results.values():
         assert out == expected * 5
+
+
+def test_close_while_other_threads_hash(photo: Path) -> None:
+    # A thread that loses the race to close() gets ValueError, never a freed context.
+    ctx = ph.ImageContext()
+    ctx.load_file(photo)
+    expected = ctx.phash()
+    started = threading.Barrier(9)
+    errors: list[BaseException] = []
+
+    def work() -> None:
+        started.wait()
+        try:
+            while True:
+                assert ctx.phash() == expected
+        except ValueError:
+            pass
+        except BaseException as e:  # noqa: BLE001 -- reported by the main thread
+            errors.append(e)
+
+    threads = [threading.Thread(target=work) for _ in range(8)]
+    for t in threads:
+        t.start()
+    started.wait()
+    ctx.close()
+    for t in threads:
+        t.join()
+    assert errors == []

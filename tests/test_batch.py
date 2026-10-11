@@ -116,3 +116,27 @@ def test_ctrl_c_stops_the_batch() -> None:
     with pytest.raises(KeyboardInterrupt):
         ph.hash_files(big, threads=2, progress=interrupt_once_started)
     assert len(done) < len(big)
+
+
+def test_batches_from_several_threads_at_once() -> None:
+    # Each call has its own pool and its own callbacks' state.
+    expected = ph.hash_files(paths())
+    results: dict[int, list[ph.BatchResult[Path]]] = {}
+    progress: dict[int, list[int]] = {}
+
+    def work(i: int) -> None:
+        seen: list[int] = []
+        results[i] = ph.hash_files(
+            paths() * 3, threads=2, progress=lambda d, _t: seen.append(d)
+        )
+        progress[i] = seen
+
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(results) == 4
+    for i, result in results.items():
+        assert [r.hashes for r in result] == [r.hashes for r in expected] * 3
+        assert progress[i] == list(range(1, len(paths()) * 3 + 1))
