@@ -54,6 +54,7 @@ _native.*.pyd
 .coverage
 .coverage.*
 htmlcov/
+mutants/
 tests/output_*.jpeg
 
 # --- macOS ---

@@ -1,0 +1,181 @@
+{
+  "about": [
+    "Mutants that no test can tell from the original code (see tools/mutants.py).",
+    "Each entry is a function, the reason, and the mutants: the lines each one",
+    "removes (-) and adds (+), as `mutmut show` prints them, stripped."
+  ],
+  "equivalent": [
+    {
+      "function": "libphash._batch._Run.on_progress",
+      "reason": "typing.cast() returns its second argument unchanged; the first is read only by type checkers.",
+      "mutants": [
+        ["-progress = cast(\"ProgressCallback\", self.progress)", "+progress = cast(None, self.progress)"],
+        ["-progress = cast(\"ProgressCallback\", self.progress)", "+progress = cast(\"XXProgressCallbackXX\", self.progress)"],
+        ["-progress = cast(\"ProgressCallback\", self.progress)", "+progress = cast(\"progresscallback\", self.progress)"],
+        ["-progress = cast(\"ProgressCallback\", self.progress)", "+progress = cast(\"PROGRESSCALLBACK\", self.progress)"]
+      ]
+    },
+    {
+      "function": "libphash._batch._files_via_buffers",
+      "reason": "None is false, as False is.",
+      "mutants": [
+        ["-stopped = False", "+stopped = None"]
+      ]
+    },
+    {
+      "function": "libphash._batch._files_via_buffers",
+      "reason": "The chunk size bounds only how many files are held in memory at once; the results do not depend on it.",
+      "mutants": [
+        ["-workers = threads if threads > 0 else (os.cpu_count() or 1)", "+workers = threads if (threads > 0) and False else (os.cpu_count() or 1)"],
+        ["-workers = threads if threads > 0 else (os.cpu_count() or 1)", "+workers = threads if (threads > 0) or True else (os.cpu_count() or 1)"],
+        ["-workers = threads if threads > 0 else (os.cpu_count() or 1)", "+workers = threads if threads >= 0 else (os.cpu_count() or 1)"],
+        ["-workers = threads if threads > 0 else (os.cpu_count() or 1)", "+workers = threads if threads > 1 else (os.cpu_count() or 1)"],
+        ["-workers = threads if threads > 0 else (os.cpu_count() or 1)", "+workers = threads if threads > 0 else (os.cpu_count() and 1)"],
+        ["-workers = threads if threads > 0 else (os.cpu_count() or 1)", "+workers = threads if threads > 0 else (os.cpu_count() or 2)"],
+        ["-chunk = max(64, 4 * workers)", "+chunk = max(65, 4 * workers)"],
+        ["-chunk = max(64, 4 * workers)", "+chunk = max(64, 4 / workers)"],
+        ["-chunk = max(64, 4 * workers)", "+chunk = max(64, 5 * workers)"]
+      ]
+    },
+    {
+      "function": "libphash._batch._files_via_buffers",
+      "reason": "The placeholder's result is replaced by the file's read error.",
+      "mutants": [
+        ["-data.append(b\"\\0\")  # placeholder; its result is replaced below", "+data.append(b\"XX\\0XX\")  # placeholder; its result is replaced below"]
+      ]
+    },
+    {
+      "function": "libphash._batch._files_via_buffers",
+      "reason": "The zipped sequences have one length by construction; strict=True only guards that.",
+      "mutants": [
+        ["-for i, (p, r) in enumerate(zip(part, part_results, strict=True)):", "+for i, (p, r) in enumerate(zip(part, part_results, strict=None)):"],
+        ["-for i, (p, r) in enumerate(zip(part, part_results, strict=True)):", "+for i, (p, r) in enumerate(zip(part, part_results, )):"],
+        ["-for i, (p, r) in enumerate(zip(part, part_results, strict=True)):", "+for i, (p, r) in enumerate(zip(part, part_results, strict=False)):"]
+      ]
+    },
+    {
+      "function": "libphash._batch.hash_buffers",
+      "reason": "The zipped sequences have one length by construction; strict=True only guards that.",
+      "mutants": [
+        ["-for item, view in zip(items, views, strict=True):", "+for item, view in zip(items, views, strict=None):"],
+        ["-for item, view in zip(items, views, strict=True):", "+for item, view in zip(items, views, ):"],
+        ["-for item, view in zip(items, views, strict=True):", "+for item, view in zip(items, views, strict=False):"]
+      ]
+    },
+    {
+      "function": "libphash._batch.hash_buffers",
+      "reason": "ffi.from_buffer() of a bytes-like object gives char[], which cffi passes for const uint8_t * as well.",
+      "mutants": [
+        ["-views = [ffi.from_buffer(\"const uint8_t[]\", b) for b in buffers]", "+views = [ffi.from_buffer(b) for b in buffers]"]
+      ]
+    },
+    {
+      "function": "libphash._context.ImageContext._dimensions",
+      "reason": "A buffer one element larger than the C function fills, with the size passed to match.",
+      "mutants": [
+        ["-out = ffi.new(\"int[]\", 3)", "+out = ffi.new(\"int[]\", 4)"]
+      ]
+    },
+    {
+      "function": "libphash._context.ImageContext._last_message",
+      "reason": "Codec names are case-insensitive.",
+      "mutants": [
+        ["-return str(ffi.string(msg).decode(\"utf-8\", \"replace\"))", "+return str(ffi.string(msg).decode(\"UTF-8\", \"replace\"))"]
+      ]
+    },
+    {
+      "function": "libphash._context.ImageContext.hashes",
+      "reason": "The zipped sequences have one length by construction; strict=True only guards that.",
+      "mutants": [
+        ["-result.update(zip(uint64, (int(v) for v in out), strict=True))", "+result.update(zip(uint64, (int(v) for v in out), strict=None))"],
+        ["-result.update(zip(uint64, (int(v) for v in out), strict=True))", "+result.update(zip(uint64, (int(v) for v in out), ))"],
+        ["-result.update(zip(uint64, (int(v) for v in out), strict=True))", "+result.update(zip(uint64, (int(v) for v in out), strict=False))"]
+      ]
+    },
+    {
+      "function": "libphash._context.ImageContext.load_bytes",
+      "reason": "ffi.from_buffer() of a bytes-like object gives char[], which cffi passes for const uint8_t * as well.",
+      "mutants": [
+        ["-buf = ffi.from_buffer(\"const uint8_t[]\", data)", "+buf = ffi.from_buffer(data)"]
+      ]
+    },
+    {
+      "function": "libphash._context._read_all",
+      "reason": "typing.cast() returns its second argument unchanged; the first is read only by type checkers.",
+      "mutants": [
+        ["-data = cast(\"object\", fileobj.read())  # checked: an untyped read() may return str", "+data = cast(None, fileobj.read())  # checked: an untyped read() may return str"],
+        ["-data = cast(\"object\", fileobj.read())  # checked: an untyped read() may return str", "+data = cast(\"XXobjectXX\", fileobj.read())  # checked: an untyped read() may return str"],
+        ["-data = cast(\"object\", fileobj.read())  # checked: an untyped read() may return str", "+data = cast(\"OBJECT\", fileobj.read())  # checked: an untyped read() may return str"],
+        ["-return cast(\"memoryview\", data)", "+return cast(None, data)"],
+        ["-return cast(\"memoryview\", data)", "+return cast(\"XXmemoryviewXX\", data)"],
+        ["-return cast(\"memoryview\", data)", "+return cast(\"MEMORYVIEW\", data)"]
+      ]
+    },
+    {
+      "function": "libphash._digest.Digest.from_hex",
+      "reason": "Codec names are case-insensitive.",
+      "mutants": [
+        ["-code = lib.ph_digest_from_hex(text.encode(\"ascii\", \"replace\"), out)", "+code = lib.ph_digest_from_hex(text.encode(\"ASCII\", \"replace\"), out)"]
+      ]
+    },
+    {
+      "function": "libphash._digest.Digest.from_uint64",
+      "reason": "int.to_bytes() is big-endian by default from Python 3.11, which mutmut runs; the 3.10 test jobs need the argument.",
+      "mutants": [
+        ["-return cls(_check_uint64(value).to_bytes(8, \"big\"), DigestKind.BITS)", "+return cls(_check_uint64(value).to_bytes(8, ), DigestKind.BITS)"]
+      ]
+    },
+    {
+      "function": "libphash._digest.Digest.hex",
+      "reason": "Codec names are case-insensitive.",
+      "mutants": [
+        ["-return str(ffi.string(out).decode(\"ascii\"))", "+return str(ffi.string(out).decode(\"ASCII\"))"]
+      ]
+    },
+    {
+      "function": "libphash._digest.hash_from_hex",
+      "reason": "Codec names are case-insensitive.",
+      "mutants": [
+        ["-code = lib.ph_hash_from_hex(text.encode(\"ascii\", \"replace\"), out)", "+code = lib.ph_hash_from_hex(text.encode(\"ASCII\", \"replace\"), out)"]
+      ]
+    },
+    {
+      "function": "libphash._digest.hash_to_hex",
+      "reason": "A buffer one element larger than the C function fills, with the size passed to match.",
+      "mutants": [
+        ["-out = ffi.new(\"char[]\", 17)", "+out = ffi.new(\"char[]\", 18)"],
+        ["-code = lib.ph_hash_to_hex(_check_uint64(value), out, 17)", "+code = lib.ph_hash_to_hex(_check_uint64(value), out, 18)"]
+      ]
+    },
+    {
+      "function": "libphash._digest.hash_to_hex",
+      "reason": "Codec names are case-insensitive.",
+      "mutants": [
+        ["-return str(ffi.string(out).decode(\"ascii\"))", "+return str(ffi.string(out).decode(\"ASCII\"))"]
+      ]
+    },
+    {
+      "function": "libphash._sources._from_array_interface",
+      "reason": "typing.cast() returns its second argument unchanged; the first is read only by type checkers.",
+      "mutants": [
+        ["-address = cast(\"tuple[object, ...]\", data)[0] if isinstance(data, tuple) else None", "+address = cast(None, data)[0] if isinstance(data, tuple) else None"],
+        ["-address = cast(\"tuple[object, ...]\", data)[0] if isinstance(data, tuple) else None", "+address = cast(\"XXtuple[object, ...]XX\", data)[0] if isinstance(data, tuple) else None"],
+        ["-address = cast(\"tuple[object, ...]\", data)[0] if isinstance(data, tuple) else None", "+address = cast(\"TUPLE[OBJECT, ...]\", data)[0] if isinstance(data, tuple) else None"],
+        ["-packed = memoryview(cast(\"Buffer\", obj)).tobytes()", "+packed = memoryview(cast(None, obj)).tobytes()"],
+        ["-packed = memoryview(cast(\"Buffer\", obj)).tobytes()", "+packed = memoryview(cast(\"XXBufferXX\", obj)).tobytes()"],
+        ["-packed = memoryview(cast(\"Buffer\", obj)).tobytes()", "+packed = memoryview(cast(\"buffer\", obj)).tobytes()"],
+        ["-packed = memoryview(cast(\"Buffer\", obj)).tobytes()", "+packed = memoryview(cast(\"BUFFER\", obj)).tobytes()"]
+      ]
+    },
+    {
+      "function": "libphash._sources.pixels_from_array",
+      "reason": "typing.cast() returns its second argument unchanged; the first is read only by type checkers.",
+      "mutants": [
+        ["-view = memoryview(cast(\"Buffer\", obj))", "+view = memoryview(cast(None, obj))"],
+        ["-view = memoryview(cast(\"Buffer\", obj))", "+view = memoryview(cast(\"XXBufferXX\", obj))"],
+        ["-view = memoryview(cast(\"Buffer\", obj))", "+view = memoryview(cast(\"buffer\", obj))"],
+        ["-view = memoryview(cast(\"Buffer\", obj))", "+view = memoryview(cast(\"BUFFER\", obj))"]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+name: Mutation
+
+# Mutation testing of the package with mutmut: each mutant of src/libphash/ must be
+# caught by the tests or be listed in tests/equivalent_mutants.json with its reason
+# (tools/mutants.py). A run takes about a quarter of an hour, so it is not part of
+# ci.yml: it runs weekly, by hand, and when the package, the list, the gate or this
+# workflow changes.
+on:
+  push:
+    branches: [ main, 'release/**' ]
+    paths: &mutation-paths
+      - src/**
+      - tests/equivalent_mutants.json
+      - tools/mutants.py
+      - .github/workflows/mutation.yml
+  pull_request:
+    branches: [ main, 'release/**' ]
+    paths: *mutation-paths
+  schedule:
+    - cron: '41 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutmut:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Build and install (editable)
+      run: uv sync --locked --all-extras
+
+    # mutmut runs the tests from a copy of the tree in mutants/, where the C reference
+    # of the parity tests would look for a libphash install of its own; the variable
+    # points it at the job's.
+    - name: libphash install
+      run: |
+        dir=$(uv run --no-sync python -c "import sys; sys.path.insert(0, 'tools'); import native; print(native.build_dir())")
+        echo "LIBPHASH_BUILD_DIR=$dir" >> "$GITHUB_ENV"
+
+    - name: mutmut run
+      env:
+        LIBPHASH_REQUIRE_C_REFERENCE: '1'
+      run: uv run --no-sync mutmut run --max-children "$(nproc)"
+
+    - name: Every mutant caught or listed as equivalent
+      run: uv run --no-sync python tools/mutants.py | tee mutation-report.md
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: ${{ !cancelled() }}
+      with:
+        name: mutation-report
+        path: mutation-report.md
+        if-no-files-found: ignore

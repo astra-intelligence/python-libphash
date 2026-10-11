@@ -27,7 +27,7 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "hypothesis", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow"]
+dev = ["pytest", "hypothesis", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'"]
 
 [tool.setuptools]
 zip-safe = false
@@ -72,6 +72,10 @@ before-all = "choco install nasm --no-progress -y"
 # escape; each one is doubled.
 environment = { PATH = 'C:\\Program Files\\NASM;$PATH' }
 
+[tool.pytest.ini_options]
+# mutmut keeps a copy of the tests in mutants/.
+testpaths = ["tests"]
+
 # Branch coverage of the package, measured against the editable build. File names are
 # stored relative to the checkout, so the data files of every platform's job combine
 # into one report; branches that run only on Windows or only on POSIX count once
@@ -92,6 +96,11 @@ fail_under = 100
 show_missing = true
 skip_covered = true
 exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.mutmut]
+source_paths = ["src/libphash/"]
+pytest_add_cli_args_test_selection = ["tests/"]
+also_copy = ["native/libphash/include", "native/libphash/tests/data", "tools"]
 
 [tool.mypy]
 strict = true
