@@ -54,6 +54,10 @@ runs:
         version: '0.12.7'
         python-version: ${{ inputs.python-version }}
         enable-cache: true
+        # The key setup-uv derives (OS, Python, lock file) is the same for several jobs
+        # whose environments differ (lint installs without the project); with the job's
+        # name in it each job keeps its own cache instead of racing to save one.
+        cache-suffix: ${{ github.job }}
         # The wheels job installs nothing through uv: cibuildwheel has its own
         # environments, so its cache stays empty.
         ignore-nothing-to-cache: true
