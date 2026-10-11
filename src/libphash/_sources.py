@@ -232,6 +232,9 @@ def pixels_from_pil(img: PILImage) -> Pixels:
         if mode == "1":
             target = "L"
         elif mode in ("P", "PA", "LA", "La", "RGBa"):
+            if mode == "La":
+                # Pillow converts premultiplied gray-with-alpha only to LA.
+                img = img.convert("LA")
             target = "RGBA"
         else:
             target = "RGB"
