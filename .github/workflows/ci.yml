@@ -112,8 +112,12 @@ jobs:
       run: uv run --no-sync python -c "import libphash; print(libphash.build_info())"
 
     # -rs lists every skipped test with its reason: a skip here is a fixture or an
-    # optional dependency the job failed to provide.
+    # optional dependency the job failed to provide. The parity tests build their C
+    # reference against the job's libphash install with the runner's CMake; the
+    # variable makes them fail rather than skip when they cannot.
     - name: pytest
+      env:
+        LIBPHASH_REQUIRE_C_REFERENCE: '1'
       run: uv run --no-sync pytest -rs
 
   # The sdist and a wheel built from it, then the test suite against that wheel in a

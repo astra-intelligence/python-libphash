@@ -114,6 +114,9 @@ convention = "pep257"
 # Tests are documented by their names and assert is how pytest checks. They pickle and
 # eval the library's own objects, and random draws test images, not secrets.
 "tests/**" = ["D100", "D103", "S101", "S301", "S307", "S311"]
+# The C reference of the parity tests is built with CMake from PATH and run with the
+# jobs the test builds; an image's error code is a result, caught per algorithm.
+"tests/test_c_parity.py" = ["S603", "PERF203"]
 # The build runs CMake from PATH or the build environment, with arguments it builds.
 "tools/native.py" = ["S603"]
 # The stub's classes and parameters carry the names of the C types and of the header.

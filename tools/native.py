@@ -34,16 +34,18 @@ NATIVE_DIR = PROJECT_ROOT / "native" / "libphash"
 HEADER = NATIVE_DIR / "include" / "libphash.h"
 
 
-def _osx_architectures() -> str | None:
+def osx_architectures() -> str | None:
+    """Return the CMake architectures that ``ARCHFLAGS`` asks for, if it does."""
     archs = re.findall(r"-arch\s+(\S+)", os.environ.get("ARCHFLAGS", ""))
     return ";".join(archs) if archs else None
 
 
-def _build_dir() -> Path:
+def build_dir() -> Path:
+    """Return the directory that holds libphash's CMake build and install."""
     if "LIBPHASH_BUILD_DIR" in os.environ:
         return Path(os.environ["LIBPHASH_BUILD_DIR"]).resolve()
     tag = sysconfig.get_platform()
-    archs = _osx_architectures()
+    archs = osx_architectures()
     if archs and not tag.endswith(archs.replace(";", "-")):
         tag += "-" + archs.replace(";", "-")
     return PROJECT_ROOT / "build" / f"libphash-{tag}"
@@ -63,7 +65,7 @@ def _cmake() -> str:
 _VS_PLATFORMS = {"win-amd64": "x64", "win32": "Win32", "win-arm64": "ARM64"}
 
 
-def _generator() -> list[str]:
+def generator() -> list[str]:
     """Return the CMake generator arguments for a fresh build tree.
 
     On Windows the generator is Visual Studio for the architecture of the running
@@ -80,7 +82,7 @@ def _generator() -> list[str]:
     return ["-G", "Ninja"] if shutil.which("ninja") else []
 
 
-def _tools_missing(cmake_dir: Path) -> bool:
+def tools_missing(cmake_dir: Path) -> bool:
     """Tell whether a CMake build tree points at a cmake or ninja that no longer exists.
 
     pip and uv build in a temporary environment that provides cmake and ninja and is
@@ -142,7 +144,7 @@ def _inputs_digest(cmake: str, configure: list[str]) -> str:
 def build_libphash() -> Path:
     """Configure, build and install libphash; return the install prefix.
 
-    A build tree whose tools are gone (see ``_tools_missing``) is not configured
+    A build tree whose tools are gone (see ``tools_missing``) is not configured
     again: when the install was built from the same inputs, it is used as it is, and
     otherwise the tree is built from scratch. cibuildwheel builds the wheel of each
     Python in a fresh environment, so every wheel after the first reuses the install.
@@ -153,9 +155,9 @@ def build_libphash() -> Path:
             "`git submodule update --init --recursive`."
         )
     cmake = _cmake()
-    build_dir = _build_dir()
-    cmake_dir = build_dir / "build"
-    prefix = build_dir / "install"
+    build_root = build_dir()
+    cmake_dir = build_root / "build"
+    prefix = build_root / "install"
     configure = [
         "-S",
         str(NATIVE_DIR),
@@ -173,22 +175,22 @@ def build_libphash() -> Path:
         "-DPHASH_OPTIMIZE_NATIVE=OFF",
         f"-DCMAKE_INSTALL_PREFIX={prefix}",
     ]
-    archs = _osx_architectures()
+    archs = osx_architectures()
     if archs:
         configure.append(f"-DCMAKE_OSX_ARCHITECTURES={archs}")
     configure += shlex.split(os.environ.get("LIBPHASH_CMAKE_ARGS", ""))
-    generator = _generator()
+    generator_args = generator()
 
-    digest_file = build_dir / "inputs.sha256"
-    digest = _inputs_digest(cmake, configure + generator)
-    if _tools_missing(cmake_dir):
+    digest_file = build_root / "inputs.sha256"
+    digest = _inputs_digest(cmake, configure + generator_args)
+    if tools_missing(cmake_dir):
         built = digest_file.read_text() if digest_file.exists() else ""
         if built == digest and next(prefix.glob("lib*/pkgconfig/libphash.pc"), None):
             return prefix
         shutil.rmtree(cmake_dir)
     digest_file.unlink(missing_ok=True)
     if not (cmake_dir / "CMakeCache.txt").exists():
-        configure += generator
+        configure += generator_args
 
     jobs = str(os.cpu_count() or 1)
     subprocess.check_call([cmake, *configure])
