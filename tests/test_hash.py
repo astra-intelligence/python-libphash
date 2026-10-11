@@ -117,7 +117,10 @@ def test_near_duplicates_are_close(photo: Path) -> None:
 def test_info() -> None:
     assert ph.build_info().startswith(f"version={ph.libphash_version()} ")
     assert "mock=off" in ph.build_info()
-    for fmt in ("jpeg", "png", "webp"):
+    # stb_image is not a native decoder: a build configured without libjpeg-turbo
+    # decodes JPEG with it and says so.
+    assert ph.can_decode("jpeg") is ("jpeg=libjpeg-turbo" in ph.build_info())
+    for fmt in ("png", "webp"):
         assert ph.can_decode(fmt) is True
     with pytest.raises(ValueError, match="fmt"):
         ph.can_decode("gif")  # type: ignore[arg-type]  # an untyped caller's mistake

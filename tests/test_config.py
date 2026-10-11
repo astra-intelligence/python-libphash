@@ -6,6 +6,7 @@ import random
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from conftest import LIBJPEG_TURBO
 
 import libphash as ph
 from libphash import Config
@@ -125,7 +126,8 @@ def test_max_pixels(photo: Path) -> None:
 def test_decode_scale(photo: Path) -> None:
     with ph.ImageContext(Config(decode_scale=2)) as ctx:
         ctx.load_file(photo)
-        assert (ctx.width, ctx.height) == (200, 200)
+        side = 200 if LIBJPEG_TURBO else 400
+        assert (ctx.width, ctx.height) == (side, side)
 
 
 def test_whash_mode_reaches_c() -> None:

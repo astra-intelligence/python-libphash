@@ -6,7 +6,7 @@ import io
 from typing import TYPE_CHECKING, cast, get_args
 
 import pytest
-from conftest import data
+from conftest import data, needs_libjpeg_turbo
 from test_decoding import VARIANTS, needs_decoder
 
 import libphash as ph
@@ -34,6 +34,8 @@ def test_variants_hash_like_their_pillow_pixels(
     name: str, alpha_mode: ph.AlphaMode
 ) -> None:
     needs_decoder(name)
+    if name.startswith("jpeg/"):
+        needs_libjpeg_turbo("its IDCT differs from Pillow's libjpeg")
     image = cast("PILImage", Image.open(data(name)))
     if image.mode not in ("RGB", "RGBA", "P", "LA", "PA"):
         # One channel is a grayscale image by contract; the file is widened to RGB.
@@ -58,6 +60,8 @@ def with_orientation(fmt: str, orientation: int) -> bytes:
 @pytest.mark.parametrize("fmt", ["JPEG", "PNG"])
 @pytest.mark.parametrize("orientation", range(1, 9))
 def test_exif_orientation(fmt: str, orientation: int) -> None:
+    if fmt == "JPEG":
+        needs_libjpeg_turbo("its IDCT differs from Pillow's libjpeg")
     encoded = with_orientation(fmt, orientation)
     stored = open_image(encoded)
     upright = ImageOps.exif_transpose(open_image(encoded))
