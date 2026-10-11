@@ -11,7 +11,7 @@ import zlib
 from pathlib import Path
 
 import pytest
-from conftest import DATA, LIBJPEG_TURBO, data
+from conftest import DATA, data, libjpeg_turbo
 
 import libphash as ph
 
@@ -38,7 +38,7 @@ def needs_decoder(name: str) -> None:
 def test_every_variant_decodes(name: str, grayscale: bool) -> None:
     needs_decoder(name)
     with ph.ImageContext(ph.Config(grayscale=grayscale)) as ctx:
-        if name == "jpeg/arithmetic.jpg" and not LIBJPEG_TURBO:
+        if name == "jpeg/arithmetic.jpg" and not libjpeg_turbo():
             # stb_image has no arithmetic decoding.
             with pytest.raises(ph.CorruptDataError):
                 ctx.load_file(data(name))
@@ -73,7 +73,7 @@ def test_broken_files_are_corrupt_data(name: str) -> None:
 @pytest.mark.parametrize("keep", [0.5, 0.9])
 def test_truncated_jpeg_is_corrupt_data(photo_bytes: bytes, keep: float) -> None:
     # The detail is the decoder's own message.
-    message = "Premature end" if LIBJPEG_TURBO else "truncated"
+    message = "Premature end" if libjpeg_turbo() else "truncated"
     with pytest.raises(ph.CorruptDataError, match=message):
         ph.hash(photo_bytes[: int(len(photo_bytes) * keep)])
 
@@ -92,7 +92,7 @@ def test_decode_scale_reduces_jpeg_only(scale: ph.DecodeScale) -> None:
     config = ph.Config(decode_scale=scale)
     with ph.ImageContext(config) as ctx:
         ctx.load_file(data("photo.jpeg"))
-        side = 400 // scale if LIBJPEG_TURBO else 400
+        side = 400 // scale if libjpeg_turbo() else 400
         assert (ctx.width, ctx.height) == (side, side)
         first = ctx.hashes(*ph.Algorithm)
         ctx.load_file(data("photo.jpeg"))

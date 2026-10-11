@@ -1,3 +1,4 @@
+import functools
 import os
 from pathlib import Path
 
@@ -13,13 +14,18 @@ collect_ignore = [] if os.environ.get("LIBPHASH_CORPUS") else ["test_corpus.py"]
 
 DATA = c_reference.DATA
 
+
 # libjpeg-turbo decodes JPEG unless the build was configured without it; stb_image then
-# does, with its own IDCT, no arithmetic coding and no decode scaling.
-LIBJPEG_TURBO = ph.can_decode("jpeg")
+# does, with its own IDCT, no arithmetic coding and no decode scaling. The question is
+# asked inside tests, not at import: collection never calls into the package, so a
+# broken build or a mutant fails the tests that use it instead of the whole session.
+@functools.cache
+def libjpeg_turbo() -> bool:
+    return ph.can_decode("jpeg")
 
 
 def needs_libjpeg_turbo(why: str) -> None:
-    if not LIBJPEG_TURBO:
+    if not libjpeg_turbo():
         pytest.skip(f"stb_image decodes JPEG in this build: {why}")
 
 
