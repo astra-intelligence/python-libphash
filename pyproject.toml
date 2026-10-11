@@ -43,7 +43,6 @@ where = ["src"]
 
 [tool.cibuildwheel]
 build-verbosity = 1
-skip = "cp36* cp37* cp38* cp39* pp*"
 # numpy and Pillow are optional at runtime; with them the array and Pillow tests run
 # against the wheel too. The sdist job of CI runs the suite without them.
 test-requires = ["pytest", "hypothesis", "numpy", "Pillow"]
