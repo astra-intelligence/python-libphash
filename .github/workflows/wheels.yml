@@ -1,10 +1,11 @@
 name: Wheels
 
 # Every wheel a release has, built and tested by cibuildwheel (configuration in
-# pyproject.toml). The code itself is tested on every platform by ci.yml; what only a
-# wheel build exercises is the build: the manylinux and musllinux images, the
-# free-threaded and 32-bit builds, the repair of each wheel and the cibuildwheel
-# configuration. So the workflow runs when a file the build reads changes, and by hand.
+# pyproject.toml, which also says which platforms get wheels). The code itself is
+# tested on every platform by ci.yml; what only a wheel build exercises is the build:
+# the manylinux images, the free-threaded builds, the repair of each wheel and the
+# cibuildwheel configuration. So the workflow runs when a file the build reads
+# changes, and by hand.
 on:
   push:
     branches: [ main, 'release/**' ]
@@ -38,13 +39,9 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-24.04, platform: manylinux_x86_64 }
-          - { os: ubuntu-24.04, platform: musllinux_x86_64 }
           - { os: ubuntu-24.04-arm, platform: manylinux_aarch64 }
-          - { os: ubuntu-24.04-arm, platform: musllinux_aarch64 }
           - { os: macos-15, platform: macosx_arm64 }
-          - { os: macos-15-intel, platform: macosx_x86_64 }
           - { os: windows-2025, platform: win_amd64 }
-          - { os: windows-2025, platform: win32 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     name: wheels (${{ matrix.platform }})

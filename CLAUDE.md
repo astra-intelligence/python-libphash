@@ -40,7 +40,7 @@ How the extension is built:
 - **`setup.py`** — `build_ext` runs the CMake build before compiling the extension, so an sdist is made without a compiler.
 - **`MANIFEST.in`** — the sdist carries only what libphash's CMake build reads (`CMakeLists.txt`, `cmake/`, `include/`, `src/`, `vendor/`, licenses), enough to build offline.
 
-On macOS, `ARCHFLAGS="-arch x86_64"` cross-builds an x86-64 wheel (as cibuildwheel does). Other platforms are verified in CI, never under emulation.
+Wheels are built for the platforms libphash's own CI supports: Linux x86-64 and arm64 (manylinux), macOS arm64, Windows x86-64 (`[tool.cibuildwheel]` in `pyproject.toml`). Elsewhere pip builds the sdist; `tools/native.py` still honours `ARCHFLAGS` on macOS and the Python's architecture on Windows. Platforms are verified in CI on native runners, never under emulation.
 
 ## Architecture
 

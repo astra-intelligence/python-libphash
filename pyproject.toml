@@ -43,6 +43,10 @@ where = ["src"]
 
 [tool.cibuildwheel]
 build-verbosity = 1
+# Wheels exist for the platforms libphash's own CI supports, so that a wheel carries a
+# library built the way libphash tests it: Linux x86-64 and arm64 (glibc), macOS arm64
+# and Windows x86-64. Elsewhere pip builds the sdist.
+skip = ["*-musllinux_*"]
 # numpy and Pillow are optional at runtime; with them the array and Pillow tests run
 # against the wheel too. The sdist job of CI runs the suite without them.
 test-requires = ["pytest", "hypothesis", "numpy", "Pillow"]
@@ -51,14 +55,18 @@ test-command = "pytest {project}/tests -rs"
 # CMake and Ninja come from build-system.requires. nasm gives libjpeg-turbo its x86
 # SIMD; without it the decoder builds without SIMD, slower but with the same hashes.
 [tool.cibuildwheel.linux]
+# The runner's own architecture: x86-64 and arm64 each build on a native runner, and
+# the default would add i686 on x86-64.
+archs = ["native"]
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
-before-all = "if command -v dnf >/dev/null; then dnf install -y nasm; elif command -v yum >/dev/null; then yum install -y nasm; elif command -v apk >/dev/null; then apk add nasm; fi"
+before-all = "if command -v dnf >/dev/null; then dnf install -y nasm; elif command -v yum >/dev/null; then yum install -y nasm; fi"
 
 [tool.cibuildwheel.macos]
-before-all = "brew install nasm || true"
+archs = ["arm64"]
 
 [tool.cibuildwheel.windows]
+archs = ["AMD64"]
 before-all = "choco install nasm --no-progress -y"
 # cibuildwheel reads the value with shell quoting, which takes a backslash as an
 # escape; each one is doubled.
