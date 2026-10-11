@@ -249,7 +249,8 @@ class ImageContext:
                 ptr, px.pointer, px.width, px.height, px.channels, px.stride
             )
             if code != PH_SUCCESS:
-                raise make_error(code, detail=self._last_message(ptr))
+                # libphash writes no message for a pixel load.
+                raise make_error(code)
         del px
 
     @staticmethod
