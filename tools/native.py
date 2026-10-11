@@ -18,6 +18,7 @@ Environment:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shlex
@@ -79,26 +80,73 @@ def _generator() -> list[str]:
     return ["-G", "Ninja"] if shutil.which("ninja") else []
 
 
-def _drop_stale_cache(cmake_dir: Path) -> None:
-    """Remove a CMake build tree whose cached tools no longer exist.
+def _tools_missing(cmake_dir: Path) -> bool:
+    """Tell whether a CMake build tree points at a cmake or ninja that no longer exists.
 
     pip and uv build in a temporary environment that provides cmake and ninja and is
-    deleted afterwards, while the build tree is kept for the next build; a cache that
-    points at the deleted tools would fail every later configure.
+    deleted afterwards, while the build tree is kept for the next build. The paths of
+    those tools are written into the generated build files, the cache, and the caches
+    of the vendored decoders' own builds, so such a tree cannot be configured again.
     """
     cache = cmake_dir / "CMakeCache.txt"
     if not cache.exists():
-        return
+        return False
     text = cache.read_text(encoding="utf-8", errors="replace")
     for key in ("CMAKE_COMMAND", "CMAKE_MAKE_PROGRAM"):
         m = re.search(rf"^{key}:\w+=(.+)$", text, flags=re.MULTILINE)
         if m and os.path.isabs(m.group(1)) and not os.path.exists(m.group(1)):
-            shutil.rmtree(cmake_dir)
-            return
+            return True
+    return False
+
+
+# The environment variables that change what CMake or the compiler produce.
+_BUILD_ENVIRONMENT = (
+    "CC",
+    "CFLAGS",
+    "CPPFLAGS",
+    "LDFLAGS",
+    "AR",
+    "MACOSX_DEPLOYMENT_TARGET",
+    "SDKROOT",
+    "CMAKE_GENERATOR",
+    "CMAKE_GENERATOR_PLATFORM",
+    "CMAKE_GENERATOR_TOOLSET",
+    "CMAKE_TOOLCHAIN_FILE",
+)
+
+
+def _inputs_digest(cmake: str, configure: list[str]) -> str:
+    """Return a digest of everything the libphash install is built from.
+
+    The configure arguments, the CMake version, the build environment, and the path,
+    size and modification time of every file of native/libphash: the same digest
+    means a configure and build would produce the same install.
+    """
+    version = subprocess.run(
+        [cmake, "--version"], capture_output=True, text=True, check=True
+    ).stdout
+    h = hashlib.sha256()
+    h.update("\0".join(configure).encode())
+    h.update(version.encode())
+    for name in _BUILD_ENVIRONMENT:
+        h.update(f"\0{name}={os.environ.get(name, '')}".encode())
+    for root, dirs, files in os.walk(NATIVE_DIR):
+        dirs[:] = sorted(d for d in dirs if d != ".git")
+        for name in sorted(files):
+            path = os.path.join(root, name)
+            st = os.stat(path)
+            h.update(f"\0{path}\0{st.st_size}\0{st.st_mtime_ns}".encode())
+    return h.hexdigest()
 
 
 def build_libphash() -> Path:
-    """Configure, build and install libphash; return the install prefix."""
+    """Configure, build and install libphash; return the install prefix.
+
+    A build tree whose tools are gone (see ``_tools_missing``) is not configured
+    again: when the install was built from the same inputs, it is used as it is, and
+    otherwise the tree is built from scratch. cibuildwheel builds the wheel of each
+    Python in a fresh environment, so every wheel after the first reuses the install.
+    """
     if not (NATIVE_DIR / "CMakeLists.txt").exists():
         sys.exit(
             "python-libphash: native/libphash is empty; run "
@@ -108,9 +156,7 @@ def build_libphash() -> Path:
     build_dir = _build_dir()
     cmake_dir = build_dir / "build"
     prefix = build_dir / "install"
-    _drop_stale_cache(cmake_dir)
     configure = [
-        cmake,
         "-S",
         str(NATIVE_DIR),
         "-B",
@@ -127,19 +173,30 @@ def build_libphash() -> Path:
         "-DPHASH_OPTIMIZE_NATIVE=OFF",
         f"-DCMAKE_INSTALL_PREFIX={prefix}",
     ]
-    if not (cmake_dir / "CMakeCache.txt").exists():
-        configure += _generator()
     archs = _osx_architectures()
     if archs:
         configure.append(f"-DCMAKE_OSX_ARCHITECTURES={archs}")
     configure += shlex.split(os.environ.get("LIBPHASH_CMAKE_ARGS", ""))
+    generator = _generator()
+
+    digest_file = build_dir / "inputs.sha256"
+    digest = _inputs_digest(cmake, configure + generator)
+    if _tools_missing(cmake_dir):
+        built = digest_file.read_text() if digest_file.exists() else ""
+        if built == digest and next(prefix.glob("lib*/pkgconfig/libphash.pc"), None):
+            return prefix
+        shutil.rmtree(cmake_dir)
+    digest_file.unlink(missing_ok=True)
+    if not (cmake_dir / "CMakeCache.txt").exists():
+        configure += generator
 
     jobs = str(os.cpu_count() or 1)
-    subprocess.check_call(configure)
+    subprocess.check_call([cmake, *configure])
     subprocess.check_call(
         [cmake, "--build", str(cmake_dir), "--config", "Release", "--parallel", jobs]
     )
     subprocess.check_call([cmake, "--install", str(cmake_dir), "--config", "Release"])
+    digest_file.write_text(digest)
     return prefix
 
 
