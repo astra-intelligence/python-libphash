@@ -1,3 +1,4 @@
+import errno
 import os
 import pickle
 import sys
@@ -12,6 +13,7 @@ from libphash._errors import make_error
 from libphash._native import ffi, lib
 
 
+@pytest.mark.usefixtures("files_read_by")
 def test_missing_file_is_file_not_found(tmp_path: Path) -> None:
     missing = tmp_path / "nope.jpg"
     with pytest.raises(FileNotFoundError) as exc:
@@ -20,8 +22,9 @@ def test_missing_file_is_file_not_found(tmp_path: Path) -> None:
     assert isinstance(err, ph.ImageIOError)
     assert isinstance(err, ph.PhashError)
     assert err.code_name == "PH_ERR_IO"
-    assert err.filename == str(missing)
-    assert "nope.jpg" in str(err)
+    assert (err.errno, err.filename) == (errno.ENOENT, str(missing))
+    assert str(err) == err.detail
+    assert str(err) == f"Cannot open '{missing}': {os.strerror(errno.ENOENT)}"
 
 
 def test_directory_is_a_directory(tmp_path: Path) -> None:
@@ -45,11 +48,26 @@ def test_unreadable_file_is_permission_error(
         path.chmod(0o600)
 
 
+@pytest.mark.usefixtures("files_read_by")
 def test_empty_file_is_an_io_error(tmp_path: Path) -> None:
     path = tmp_path / "empty.jpg"
     path.write_bytes(b"")
-    with pytest.raises(ph.ImageIOError):
+    with pytest.raises(ph.ImageIOError) as exc:
         ph.hash(path)
+    assert str(exc.value) == f"Cannot read '{path}': file is empty"
+    assert (exc.value.errno, exc.value.filename) == (None, str(path))
+
+
+def test_io_error_without_a_path() -> None:
+    err = make_error(int(lib.PH_ERR_IO))
+    assert type(err) is ph.ImageIOError
+    assert (err.errno, err.filename) == (None, None)
+
+
+def test_io_error_defaults() -> None:
+    err = ph.ImageIOError("cannot")
+    assert (str(err), err.code, err.code_name, err.detail) == ("cannot", 0, "", "")
+    assert repr(err) == "ImageIOError('cannot')"
 
 
 def test_decode_errors() -> None:
@@ -104,9 +122,14 @@ def test_exceptions_pickle(make: Callable[[], object]) -> None:
 def test_io_exception_pickles_with_errno(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError) as exc:
         ph.hash(tmp_path / "nope.jpg")
-    clone = pickle.loads(pickle.dumps(exc.value))
+    err = exc.value
+    clone = pickle.loads(pickle.dumps(err))
     assert isinstance(clone, FileNotFoundError)
-    assert clone.errno == exc.value.errno
+    assert isinstance(err, ph.ImageIOError)
+    assert isinstance(clone, ph.ImageIOError)
+    assert (str(clone), repr(clone)) == (str(err), repr(err))
+    assert (clone.code, clone.detail) == (err.code, err.detail)
+    assert (clone.errno, clone.filename) == (err.errno, err.filename)
 
 
 def test_builtin_bases() -> None:

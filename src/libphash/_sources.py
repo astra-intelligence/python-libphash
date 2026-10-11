@@ -246,14 +246,16 @@ def pixels_from_pil(img: PILImage) -> Pixels:
 def read_file(path: StrPath) -> bytes:
     """Read an image file for the C library to load from memory.
 
-    A file that cannot be read, or is empty, raises the ImageIOError that the C
-    library's own open would.
+    A file that cannot be opened, or is empty, raises the ImageIOError that the C
+    library's own open would, with the same message.
     """
     try:
         with open(path, "rb") as f:
             data = f.read()
     except OSError as e:
-        raise make_error(PH_ERR_IO, detail=f"{e.strerror}: {path!s}", path=path) from e
+        detail = f"Cannot open '{os.fsdecode(path)}': {e.strerror}"
+        raise make_error(PH_ERR_IO, detail=detail, path=path) from e
     if not data:
-        raise make_error(PH_ERR_IO, detail=f"empty file: {path!s}", path=path)
+        detail = f"Cannot read '{os.fsdecode(path)}': file is empty"
+        raise make_error(PH_ERR_IO, detail=detail, path=path)
     return data

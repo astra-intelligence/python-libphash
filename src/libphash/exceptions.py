@@ -73,7 +73,8 @@ class ImageIOError(PhashError, OSError):
         PhashError.__init__(self, message, code=code, detail=detail)
 
     def __str__(self) -> str:
-        return str(self.args[0]) if self.args else ""
+        # OSError's own would print "[Errno 2] ..." once errno is set.
+        return str(self.args[0])
 
     def __repr__(self) -> str:
         # The errno-specific subclasses are an implementation detail.
