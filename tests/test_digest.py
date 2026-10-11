@@ -1,9 +1,12 @@
 import math
 import pickle
+import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
 import pytest
+from conftest import exactly
 
 import libphash as ph
 from libphash import Digest, DigestKind
@@ -141,3 +144,78 @@ def test_comparing_with_other_types() -> None:
 def test_hash_from_hex_rejects_garbage() -> None:
     with pytest.raises(ph.InvalidArgumentError, match="parsing hash 'xyz'"):
         ph.hash_from_hex("xyz")
+
+
+BITS = Digest(b"\x0f", DigestKind.BITS)
+UNSPECIFIED = Digest(b"\x0f", DigestKind.UNSPECIFIED)
+
+
+def test_similarity_takes_the_kind_either_digest_states() -> None:
+    assert BITS.similarity(UNSPECIFIED) == 1.0
+    assert UNSPECIFIED.similarity(BITS) == 1.0
+    message = (
+        "similarity: neither digest states its kind, so the measure is unknown; call "
+        "hamming_distance(), l2_distance(), histogram_intersection() or "
+        "radial_similarity() explicitly"
+    )
+    with pytest.raises(ph.DigestKindError, match=exactly(message)):
+        UNSPECIFIED.similarity(UNSPECIFIED)
+    vector16 = Digest(b"\0\0", DigestKind.VECTOR16)
+    message = (
+        "similarity: VECTOR16 digests have no normalized similarity; use l2_distance()"
+    )
+    with pytest.raises(ph.DigestKindError, match=exactly(message)):
+        vector16.similarity(vector16)
+
+
+@pytest.mark.parametrize(
+    ("kind", "metric", "right"),
+    [
+        (DigestKind.BITS, "l2_distance", "hamming_distance() or similarity()"),
+        (DigestKind.VECTOR, "hamming_distance", "l2_distance()"),
+        (DigestKind.VECTOR16, "radial_similarity", "l2_distance()"),
+        (
+            DigestKind.HISTOGRAM,
+            "hamming_distance",
+            "histogram_intersection() or similarity()",
+        ),
+        (DigestKind.COEFFICIENTS, "l2_distance", "radial_similarity() or similarity()"),
+    ],
+)
+def test_wrong_kind_names_the_right_metric(
+    kind: DigestKind, metric: str, right: str
+) -> None:
+    d = Digest(b"\0\0", kind)
+    message = f"{metric} does not apply to {kind.name} digests; use {right}"
+    with pytest.raises(ph.DigestKindError, match=exactly(message)):
+        getattr(d, metric)(Digest(b"\0\0", DigestKind.UNSPECIFIED))
+
+
+def test_equal_digests_hash_alike_and_others_apart() -> None:
+    digests = [Digest(bytes([i]), DigestKind.BITS) for i in range(16)]
+    assert hash(Digest(b"\1", DigestKind.BITS)) == hash(digests[1])
+    assert len({hash(d) for d in digests}) == len(digests)
+
+
+@pytest.mark.parametrize(
+    ("parse", "what"),
+    [(Digest.from_hex, "digest"), (ph.hash_from_hex, "hash")],
+)
+def test_hex_parsers_quote_the_text(parse: Callable[[str], object], what: str) -> None:
+    # Non-ASCII text is refused by the C parser, not by the encoder.
+    for text in ("bits:é0", "x" * 50):
+        with pytest.raises(
+            ph.InvalidArgumentError,
+            match=f"^parsing {what} {re.escape(repr(text[:40]))}: ",
+        ):
+            parse(text)
+
+
+def test_uint64_messages() -> None:
+    with pytest.raises(TypeError, match=exactly("a 64-bit hash is an int, got str")):
+        ph.hash_to_hex(cast("int", "1"))
+    with pytest.raises(TypeError, match=exactly("a 64-bit hash is an int, got bool")):
+        ph.hash_to_hex(True)
+    message = "a 64-bit hash is in [0, 2**64), got -1"
+    with pytest.raises(ph.InvalidArgumentError, match=exactly(message)):
+        ph.hash_to_hex(-1)

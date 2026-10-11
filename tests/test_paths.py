@@ -62,6 +62,17 @@ def test_symlinks(tmp_path: Path, photo: Path) -> None:
         ph.hash(dangling)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="libphash opens paths on POSIX")
+def test_message_with_a_name_that_is_not_utf8(tmp_path: Path) -> None:
+    # libphash's message holds the path's bytes; what is not UTF-8 reads as U+FFFD.
+    raw = os.fsencode(tmp_path) + b"/\xff\xfe-missing.jpg"
+    with pytest.raises(FileNotFoundError) as exc:
+        ph.ImageContext().load_file(raw)
+    assert str(exc.value).endswith(
+        "/\ufffd\ufffd-missing.jpg': No such file or directory"
+    )
+
+
 def test_long_path_keeps_the_name(tmp_path: Path) -> None:
     deep = tmp_path / ("d" * 200) / ("e" * 200)
     with pytest.raises(ph.ImageIOError) as exc:

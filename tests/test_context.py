@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from conftest import data
+from conftest import data, exactly
 
 import libphash as ph
 
@@ -39,8 +39,12 @@ def test_unclosed_contexts_are_freed(photo: Path) -> None:
 
 def test_cannot_pickle_or_copy() -> None:
     ctx = ph.ImageContext()
-    for op in (pickle.dumps, copy.copy, copy.deepcopy):
-        with pytest.raises(TypeError, match="Config"):
+    message = "ImageContext cannot be pickled; pickle its Config instead"
+    with pytest.raises(TypeError, match=exactly(message)):
+        pickle.dumps(ctx)
+    message = "ImageContext cannot be copied; create one from its Config instead"
+    for op in (copy.copy, copy.deepcopy):
+        with pytest.raises(TypeError, match=exactly(message)):
             op(ctx)
 
 

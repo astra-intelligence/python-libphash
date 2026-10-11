@@ -108,17 +108,17 @@ def test_buffers(photo_bytes: bytes) -> None:
 @pytest.mark.skipif((os.cpu_count() or 1) < 2, reason="one CPU: one worker")
 def test_default_threads_are_workers(photo_bytes: bytes) -> None:
     # threads=0 runs the items on libphash's pool; threads=1 on the calling thread.
-    def callers(**kwargs: int) -> set[int]:
-        idents: set[int] = set()
-        ph.hash_buffers(
-            [photo_bytes] * 8,
-            progress=lambda _d, _t: idents.add(threading.get_ident()),
-            **kwargs,
-        )
-        return idents
+    idents: set[int] = set()
 
-    assert threading.get_ident() not in callers()
-    assert callers(threads=1) == {threading.get_ident()}
+    def note(_done: int, _total: int) -> None:
+        idents.add(threading.get_ident())
+
+    ph.hash_buffers([photo_bytes] * 8, progress=note)
+    assert idents
+    assert threading.get_ident() not in idents
+    idents.clear()
+    ph.hash_buffers([photo_bytes] * 8, threads=1, progress=note)
+    assert idents == {threading.get_ident()}
 
 
 def test_digests_cannot_be_batched() -> None:

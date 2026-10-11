@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from conftest import exactly
 
 import libphash as ph
 import libphash._batch
@@ -40,6 +41,10 @@ class StandInLib:
 
 def fail(*_args: object) -> int:
     return ERROR
+
+
+def rejected(*_args: object) -> int:
+    return -1
 
 
 def failing(*names: str) -> StandInLib:
@@ -82,15 +87,38 @@ def test_hex_encoding(
         call()
 
 
-def test_digest_metric_sentinel(monkeypatch: pytest.MonkeyPatch) -> None:
-    d = ph.Digest(b"\1", ph.DigestKind.BITS)
-    monkeypatch.setattr(
-        libphash._digest,
-        "lib",
-        StandInLib(ph_hamming_distance_digest=lambda *_args: -1),
-    )
-    with pytest.raises(ph.InvalidArgumentError, match="rejected the digests"):
-        d.hamming_distance(d)
+@pytest.mark.parametrize(
+    ("function", "kind", "metric", "name"),
+    [
+        ("ph_hamming_distance_digest", "BITS", "hamming_distance", "hamming_distance"),
+        ("ph_similarity_digest", "BITS", "similarity", "similarity"),
+        ("ph_l2_distance", "VECTOR16", "l2_distance", "l2_distance"),
+    ],
+)
+def test_digest_metric_sentinel(
+    monkeypatch: pytest.MonkeyPatch, function: str, kind: str, metric: str, name: str
+) -> None:
+    d = ph.Digest(b"\1\1", ph.DigestKind[kind])
+    monkeypatch.setattr(libphash._digest, "lib", StandInLib(**{function: rejected}))
+    message = f"{name}: the C library rejected the digests"
+    with pytest.raises(ph.InvalidArgumentError, match=exactly(message)):
+        getattr(d, metric)(d)
+
+
+@pytest.mark.parametrize(
+    ("function", "kind", "metric"),
+    [
+        ("ph_histogram_intersection", "HISTOGRAM", "histogram_intersection"),
+        ("ph_radial_similarity", "COEFFICIENTS", "radial_similarity"),
+    ],
+)
+def test_digest_metric_error(
+    monkeypatch: pytest.MonkeyPatch, function: str, kind: str, metric: str
+) -> None:
+    d = ph.Digest(b"\1\2", ph.DigestKind[kind])
+    monkeypatch.setattr(libphash._digest, "lib", failing(function))
+    with pytest.raises(ph.InvalidArgumentError, match=f"^{metric}: "):
+        getattr(d, metric)(d)
 
 
 def test_batch_options_init(

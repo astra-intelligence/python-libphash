@@ -120,22 +120,19 @@ def test_layouts_that_need_a_copy() -> None:
         assert ph.hash(view) == ph.hash(np.ascontiguousarray(view))
 
 
-def address(pointer: object) -> int:
-    return int(ffi.cast("uintptr_t", pointer))
-
-
 def test_arrays_without_a_copy() -> None:
     # The pointer handed to C is the array's own memory, its row step the stride.
     rgb = np.asarray(pil("photo.png").convert("RGB"))
     gray = np.ascontiguousarray(rgb[:, :, 0])
     for arr in (rgb, rgb[20:-30, 10:-40], gray, gray[5:-5, 5:-5]):
         px = pixels_from_array(arr, "rgb")
-        assert address(px.pointer) == arr.__array_interface__["data"][0]
+        own = ffi.cast("const uint8_t *", arr.__array_interface__["data"][0])
+        assert px.pointer == own
         assert (px.height, px.width) == arr.shape[:2]
         assert px.stride == arr.strides[0]
     view = memoryview(rgb)
     px = pixels_from_array(view, "rgb")
-    assert address(px.pointer) == address(ffi.from_buffer(view))
+    assert px.pointer == ffi.from_buffer(view)
     assert (px.height, px.width, px.channels, px.stride) == (*rgb.shape, 0)
 
 
@@ -206,7 +203,7 @@ def test_memoryview_layouts() -> None:
             ph.hash(memoryview(np.zeros((8, 8), dtype=dtype)))
     # Format 'c' is a byte too.
     chars = memoryview(rgb.tobytes()).cast("c", rgb.shape)
-    assert ph.hash(chars) == ph.hash(rgb)
+    assert ph.hash(cast("ph.PixelArray", chars)) == ph.hash(rgb)
     # A gapped view and BGR order are copied once.
     gapped = memoryview(rgb[:, ::2])
     assert ph.hash(gapped) == ph.hash(np.ascontiguousarray(rgb[:, ::2]))
@@ -224,6 +221,6 @@ class _Interface:
 
 def test_array_interface_without_data() -> None:
     message = "the array does not expose its data through the buffer protocol"
-    interface = {"version": 3, "typestr": "|u1", "shape": (8, 8, 3)}
+    interface: dict[str, object] = {"version": 3, "typestr": "|u1", "shape": (8, 8, 3)}
     with pytest.raises(TypeError, match=exactly(message)):
         ph.hash(cast("ph.PixelArray", _Interface(interface)))
