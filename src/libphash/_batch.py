@@ -299,15 +299,15 @@ class _Run:
             return True
 
     def on_progress(self) -> None:
-        if self.progress is None:
-            return
+        # The callback is registered only with a progress function.
+        progress = cast("ProgressCallback", self.progress)
         with self.lock:
             self.done += 1
             done = self.done
             if self.stop:
                 return
             try:
-                if self.progress(done, self.total) is False:
+                if progress(done, self.total) is False:
                     self.stop = True
             except BaseException as e:  # noqa: BLE001 -- re-raised from finish()
                 self.error = e

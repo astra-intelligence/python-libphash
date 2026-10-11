@@ -265,9 +265,8 @@ class ImageContext:
 
     @staticmethod
     def _last_message(ptr: ph_context_t_ptr) -> str:
+        # Never NULL: an empty string when the last load set no message.
         msg = lib.ph_get_last_error_message(ptr)
-        if not msg:
-            return ""
         return str(ffi.string(msg).decode("utf-8", "replace"))
 
     # --- Hashing ---------------------------------------------------------------------

@@ -89,16 +89,14 @@ def _io_error(
     cls: type[ImageIOError] = ImageIOError
     if path is not None:
         # The C library reports every unusable path as PH_ERR_IO; the file system tells
-        # which OSError it is.
-        try:
-            if os.path.isdir(path):
-                err, cls = errno.EISDIR, IsADirectoryImageError
-            elif not os.path.exists(path):
-                err, cls = errno.ENOENT, FileNotFoundImageError
-            elif not os.access(path, os.R_OK):
-                err, cls = errno.EACCES, PermissionDeniedImageError
-        except (OSError, ValueError):
-            pass
+        # which OSError it is. isdir() and exists() answer False for a path they cannot
+        # check, so access() sees only paths that exist.
+        if os.path.isdir(path):
+            err, cls = errno.EISDIR, IsADirectoryImageError
+        elif not os.path.exists(path):
+            err, cls = errno.ENOENT, FileNotFoundImageError
+        elif not os.access(path, os.R_OK):
+            err, cls = errno.EACCES, PermissionDeniedImageError
     exc = cls(message, code=code, detail=detail)
     exc.errno = err
     exc.filename = os.fsdecode(path) if path is not None else None
