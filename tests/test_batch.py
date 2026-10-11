@@ -101,20 +101,30 @@ def test_exception_in_progress_propagates() -> None:
         ph.hash_files(paths() * 10, threads=2, progress=boom)
 
 
+# threads=1 runs the callbacks on the calling thread, where KeyboardInterrupt arrives
+# inside a callback; with workers it arrives once the call returns, and the batch
+# learns of it through the wakeup fd.
 @pytest.mark.skipif(
     sys.platform == "win32", reason="SIGINT delivery differs on Windows"
 )
-def test_ctrl_c_stops_the_batch() -> None:
+@pytest.mark.parametrize("threads", [1, 2])
+@pytest.mark.parametrize("with_progress", [True, False])
+def test_ctrl_c_stops_the_batch(threads: int, *, with_progress: bool) -> None:
     big = [data("photo_large.jpeg")] * 2000
     done: list[int] = []
 
-    def interrupt_once_started(d: int, _t: int) -> None:
+    def count(d: int, _t: int) -> None:
         done.append(d)
-        if d == 5:
-            threading.Thread(target=os.kill, args=(os.getpid(), signal.SIGINT)).start()
 
-    with pytest.raises(KeyboardInterrupt):
-        ph.hash_files(big, threads=2, progress=interrupt_once_started)
+    timer = threading.Timer(0.2, os.kill, (os.getpid(), signal.SIGINT))
+    timer.start()
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            ph.hash_files(
+                big, threads=threads, progress=count if with_progress else None
+            )
+    finally:
+        timer.cancel()
     assert len(done) < len(big)
 
 

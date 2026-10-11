@@ -215,9 +215,7 @@ class _Run:
         self.done = 0
         self.stop = False
         self.error: BaseException | None = None
-        self.interrupted = False
         self.wakeup: socket.socket | None = None
-        self.previous_wakeup = -1
         self.options = ffi.new("ph_batch_options_t *")
         check(lib.ph_batch_options_init(self.options))
         self.handle = ffi.new_handle(self)
@@ -235,6 +233,7 @@ class _Run:
             lib.ph_free(template)
             raise
         self.options.config = template
+        _escaped.error = None
         self._watch_sigint()
         return self
 
@@ -245,6 +244,9 @@ class _Run:
 
     def finish(self, code: int) -> None:
         """Check the batch's return code, re-raising a callback's exception."""
+        escaped, _escaped.error = _escaped.error, None
+        if escaped is not None:
+            raise escaped
         if self.error is not None:
             raise self.error
         if code not in (PH_SUCCESS, PH_ERR_CANCELLED):
@@ -292,7 +294,6 @@ class _Run:
                 except (BlockingIOError, InterruptedError):
                     received = b""
                 if int(signal.SIGINT) in received:
-                    self.interrupted = True
                     self.stop = True
                     return False
             return True
@@ -319,19 +320,32 @@ def _check_threads(threads: object) -> int:
     return threads
 
 
-@ffi.def_extern(name="_libphash_should_continue")
+class _Escaped(threading.local):
+    error: BaseException | None = None
+
+
+# An exception that leaves a callback never reaches C: cffi passes it to
+# _keep_escaped and returns 0 to C, which stops the batch. Such an exception can
+# arrive as the callback is entered, before any line of it runs: KeyboardInterrupt,
+# when the calling thread runs the callbacks (threads=1). It is kept per thread and
+# re-raised by finish() on the calling thread; on a worker thread it only stops the
+# batch, since the calling thread cannot see it.
+_escaped = _Escaped()
+
+
+def _keep_escaped(
+    _type: type[BaseException] | None, value: BaseException | None, _tb: object
+) -> None:
+    _escaped.error = value
+
+
+@ffi.def_extern(name="_libphash_should_continue", onerror=_keep_escaped)
 def should_continue_callback(user_data: void_ptr) -> int:
-    try:
-        run = cast("_Run", ffi.from_handle(user_data))
-        return 1 if run.should_continue() else 0
-    except BaseException:  # noqa: BLE001 -- a callback must not raise into C
-        return 0
+    run = cast("_Run", ffi.from_handle(user_data))
+    return 1 if run.should_continue() else 0
 
 
-@ffi.def_extern(name="_libphash_on_progress")
+@ffi.def_extern(name="_libphash_on_progress", onerror=_keep_escaped)
 def on_progress_callback(_done: int, _total: int, user_data: void_ptr) -> None:
-    try:
-        run = cast("_Run", ffi.from_handle(user_data))
-        run.on_progress()
-    except BaseException:  # noqa: BLE001, S110 -- a callback must not raise into C
-        pass
+    run = cast("_Run", ffi.from_handle(user_data))
+    run.on_progress()
