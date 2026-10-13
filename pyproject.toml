@@ -156,9 +156,14 @@ exclude_also = ["if TYPE_CHECKING:"]
 
 [tool.mutmut]
 source_paths = ["src/libphash/"]
-# The memory tests repeat every operation hundreds of times and catch no mutant the other
-# tests miss; run for each mutant, they would multiply the run's time.
-pytest_add_cli_args_test_selection = ["tests/", "--ignore=tests/test_memory.py"]
+# The memory tests repeat every operation hundreds of times, and the benchmarks start
+# interpreters and process pools; neither catches a mutant the other tests miss, and run
+# for each mutant they would multiply the run's time.
+pytest_add_cli_args_test_selection = [
+  "tests/",
+  "--ignore=tests/test_memory.py",
+  "--ignore=tests/test_benchmarks.py",
+]
 also_copy = [
   "CHANGELOG.md",
   "examples",
@@ -171,12 +176,12 @@ also_copy = [
 [tool.mypy]
 strict = true
 python_version = "3.10"
-files = ["src", "tests", "tools", "examples", "setup.py"]
+files = ["src", "tests", "tools", "examples", "benchmarks", "setup.py"]
 mypy_path = ["src", "tools", "typings"]
 
 [tool.basedpyright]
 typeCheckingMode = "strict"
-include = ["src", "tests", "tools", "examples", "setup.py"]
+include = ["src", "tests", "tools", "examples", "benchmarks", "setup.py"]
 # tools/ is imported by setup.py and the tests through sys.path.
 extraPaths = ["tools"]
 pythonVersion = "3.10"
@@ -199,7 +204,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 # tools/ is imported through sys.path.
-known-first-party = ["libphash", "cdef", "native"]
+known-first-party = ["libphash", "cdef", "native", "benchmarks"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
@@ -224,6 +229,9 @@ convention = "pep257"
 # The examples are scripts: they print, and main() is documented by the module, whose
 # docstring holds the command and its output as they are, a line each however long.
 "examples/**" = ["T201", "D103", "E501"]
+# A benchmark times each closure in the iteration of the loop that defines it, its tables
+# print × and −, and it runs the interpreter and the C side it builds.
+"benchmarks/**" = ["B023", "RUF001", "S603"]
 # The stub's classes and parameters carry the names of the C types and of the header.
 "src/libphash/_native.pyi" = ["N801", "A002"]
 
@@ -233,3 +241,5 @@ extend-exclude = ["native", "tmp", "build", "dist"]
 [tool.typos.default.extend-identifiers]
 # Pillow's mode name for RGB with premultiplied alpha.
 RGBa = "RGBa"
+# A field of Darwin's mach_timebase_info_data_t.
+numer = "numer"
