@@ -119,10 +119,13 @@ def _wheel_files(names: list[str], dist_info: str) -> list[str]:
         r"libphash/[a-z_]+\.py|libphash/_native\.pyi|libphash/py\.typed"
         r"|libphash/_native\..*(so|pyd)"
         rf"|{re.escape(dist_info)}/(METADATA|WHEEL|RECORD|top_level\.txt"
-        r"|licenses/.+|sboms/.+)"
+        r"|entry_points\.txt|licenses/.+|sboms/.+)"
     )
+    # A directory entry holds nothing; the repair tools add them on some platforms.
     return [
-        f"unexpected file in the wheel: {n}" for n in names if not allowed.fullmatch(n)
+        f"unexpected file in the wheel: {n}"
+        for n in names
+        if not n.endswith("/") and not allowed.fullmatch(n)
     ]
 
 
