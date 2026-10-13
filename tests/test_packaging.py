@@ -22,8 +22,9 @@ def test_sbom_names_libphash_at_the_bundled_version() -> None:
 def test_sbom_names_every_decoder_the_build_reports() -> None:
     names = {c["name"] for c in sbom.components()}
     info = dict(item.split("=", 1) for item in ph.build_info().split())
+    # "stb" is stb_image, which every build carries.
     for key in ("jpeg", "png", "webp", "zlib"):
-        if info[key] != "none":
+        if info[key] not in ("none", "stb"):
             assert info[key] in names
     assert {"stb_image", "stb_image_resize2"} <= names
 

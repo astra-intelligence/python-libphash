@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import data
+from conftest import data, needs_libjpeg_turbo
 
 from libphash._cli import main
 
@@ -91,6 +91,7 @@ def test_command_line_prints_what_the_page_shows(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    needs_libjpeg_turbo("the page shows the hashes of libjpeg-turbo's decode")
     for name, fixture in IMAGES.items():
         shutil.copy(data(fixture), tmp_path / name)
     (tmp_path / "album").mkdir()
