@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # native/libphash is not here. It is pinned to a release tag of libphash, and
+  # Dependabot's gitsubmodule updates would propose the newest commit of a branch
+  # instead; .github/workflows/libphash-release-check.yml watches libphash's tags.
+
+  # The Actions of the workflows and of the composite action. Every `uses:` names a full
+  # commit SHA with its release in a trailing comment: a tag can be moved by the action's
+  # owner, a SHA cannot. Dependabot updates the SHA and the comment together, all of them
+  # in one pull request a week.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/setup
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # uv.lock: cffi and the optional development dependencies, as CI installs them. The
+  # requirements in pyproject.toml are lower bounds, which these updates leave as they
+  # are. Version updates come in one pull request a week; security updates, where they
+  # are enabled in the repository settings, come as soon as an advisory is published.
+  - package-ecosystem: uv
+    directory: /
+    versioning-strategy: lockfile-only
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        applies-to: version-updates
+        patterns: ["*"]
