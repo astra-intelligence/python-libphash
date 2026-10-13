@@ -1,0 +1,72 @@
+name: Fuzz
+
+# Each fuzz target of tools/fuzz_targets.py for a quarter of an hour, in the
+# AddressSanitizer build of tools/sanitizers.py; the sanitizer job of ci.yml gives them a
+# minute each. Every run starts from the corpus in tests/fuzz/: an input that fails a
+# target is uploaded, and goes into the corpus with the fix. It runs weekly, by hand,
+# and when a target, the corpus or this workflow changes.
+on:
+  push:
+    branches: [ main, 'release/**' ]
+    paths: &fuzz-paths
+      - tools/fuzz.py
+      - tools/fuzz_targets.py
+      - tests/fuzz/**
+      - .github/workflows/fuzz.yml
+  pull_request:
+    branches: [ main, 'release/**' ]
+    paths: *fuzz-paths
+  schedule:
+    - cron: '53 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ load, pixels, digest ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    name: fuzz (${{ matrix.target }})
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Install Clang and its sanitizer runtimes
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang libclang-rt-18-dev
+
+    - name: Build under AddressSanitizer
+      run: uv run --no-project python tools/sanitizers.py build address
+
+    - name: Fuzz for 15 minutes
+      run: |
+        mkdir -p fuzz-crashes
+        .venv/bin/python tools/sanitizers.py run fuzz sanitizer-logs -- \
+          .venv/bin/python tools/fuzz.py ${{ matrix.target }} -max_total_time=900 \
+          -max_len=65536 -artifact_prefix=fuzz-crashes/
+
+    - name: Sanitizer reports
+      if: ${{ !cancelled() }}
+      run: .venv/bin/python tools/sanitizers.py check sanitizer-logs
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: failure()
+      with:
+        name: fuzz-${{ matrix.target }}
+        path: |
+          sanitizer-logs/
+          fuzz-crashes/
+        if-no-files-found: ignore

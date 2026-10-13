@@ -1,3 +1,4 @@
+import ctypes
 import functools
 import os
 import re
@@ -18,6 +19,30 @@ import libphash._context
 collect_ignore = [] if os.environ.get("LIBPHASH_CORPUS") else ["test_corpus.py"]
 
 DATA = c_reference.DATA
+
+
+def _sanitizer_runtime() -> ctypes.CDLL | None:
+    """Return the process's own symbols if a sanitizer runtime is loaded into it."""
+    if sys.platform == "win32":
+        return None
+    symbols = ctypes.CDLL(None)
+    return symbols if hasattr(symbols, "__sanitizer_print_stack_trace") else None
+
+
+#: The sanitizer job runs the tests with AddressSanitizer or ThreadSanitizer preloaded.
+SANITIZER = _sanitizer_runtime()
+
+
+def pytest_unconfigure() -> None:
+    """Under LeakSanitizer, report the blocks nothing points to once the tests are done.
+
+    The sanitizer job turns the check at exit off: by then the interpreter has dropped
+    its own references to memory it never frees, which would bury the report. Here the
+    interpreter still holds them, and tools/sanitizer_logs.py fails the job on a block
+    the extension allocated.
+    """
+    if SANITIZER is not None and hasattr(SANITIZER, "__lsan_do_recoverable_leak_check"):
+        SANITIZER.__lsan_do_recoverable_leak_check()
 
 
 # libjpeg-turbo decodes JPEG unless the build was configured without it; stb_image then

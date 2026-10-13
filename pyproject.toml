@@ -27,7 +27,14 @@ dependencies = ["cffi>=1.15.0"]
 "Homepage" = "https://github.com/gudoshnikovn/python-libphash"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'"]
+dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "psutil", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "types-psutil", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'"]
+
+# Not part of "dev": atheris has wheels for Linux x86-64 and CPython 3.12+ only, and the
+# sanitizer job of CI, which runs the fuzzers, installs it with --group fuzz.
+[dependency-groups]
+fuzz = [
+  "atheris>=3.1; sys_platform == 'linux' and platform_machine == 'x86_64' and python_version >= '3.12'",
+]
 
 [tool.setuptools]
 zip-safe = false
@@ -49,7 +56,7 @@ build-verbosity = 1
 skip = ["*-musllinux_*"]
 # numpy and Pillow are optional at runtime; with them the array and Pillow tests run
 # against the wheel too. The sdist job of CI runs the suite without them.
-test-requires = ["pytest", "pytest-timeout", "hypothesis", "numpy", "Pillow"]
+test-requires = ["pytest", "pytest-timeout", "hypothesis", "psutil", "numpy", "Pillow"]
 test-command = "pytest {project}/tests -rs"
 
 # CMake and Ninja come from build-system.requires. nasm gives libjpeg-turbo its x86
@@ -106,14 +113,21 @@ exclude_also = ["if TYPE_CHECKING:"]
 
 [tool.mutmut]
 source_paths = ["src/libphash/"]
-pytest_add_cli_args_test_selection = ["tests/"]
-also_copy = ["native/libphash/include", "native/libphash/tests/data", "tools"]
+# The memory tests repeat every operation hundreds of times and catch no mutant the other
+# tests miss; run for each mutant, they would multiply the run's time.
+pytest_add_cli_args_test_selection = ["tests/", "--ignore=tests/test_memory.py"]
+also_copy = [
+  "native/libphash/include",
+  "native/libphash/tests/data",
+  "tools",
+  ".github/workflows",
+]
 
 [tool.mypy]
 strict = true
 python_version = "3.10"
 files = ["src", "tests", "tools", "setup.py"]
-mypy_path = ["src", "tools"]
+mypy_path = ["src", "tools", "typings"]
 
 [tool.basedpyright]
 typeCheckingMode = "strict"
@@ -156,6 +170,12 @@ convention = "pep257"
 "tests/c_reference.py" = ["S603", "PERF203"]
 # The build runs CMake from PATH or the build environment, with arguments it builds.
 "tools/native.py" = ["S603"]
+# The sanitizer builds run uv and clang from PATH, and a run starts the command it is
+# given.
+"tools/sanitizers.py" = ["S603", "S607"]
+# A fuzz target fails by raising, so its checks are asserts; an error is an outcome to
+# record for each algorithm, not a reason to stop.
+"tools/fuzz_targets.py" = ["S101", "PERF203"]
 # The stub's classes and parameters carry the names of the C types and of the header.
 "src/libphash/_native.pyi" = ["N801", "A002"]
 

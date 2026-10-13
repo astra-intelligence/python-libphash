@@ -188,7 +188,7 @@ jobs:
     - name: Install the wheel into a fresh environment
       run: |
         uv venv "$RUNNER_TEMP/venv"
-        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install dist/*.whl pytest pytest-timeout hypothesis
+        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install dist/*.whl pytest pytest-timeout hypothesis psutil
 
     - name: pytest
       run: '"$RUNNER_TEMP/venv/bin/python" -m pytest -rs'
@@ -198,3 +198,60 @@ jobs:
         name: sdist
         path: dist/*.tar.gz
         if-no-files-found: error
+
+  # The test suite with libphash, its decoders and the extension built under Clang's
+  # sanitizers by tools/sanitizers.py; the interpreter is not instrumented, so a report
+  # is about code of the extension. AddressSanitizer runs with UndefinedBehaviorSanitizer
+  # and LeakSanitizer, then fuzzes each target of tools/fuzz_targets.py for a minute
+  # from its corpus (fuzz.yml runs them longer); ThreadSanitizer watches libphash's
+  # worker threads and the callbacks they make into Python.
+  sanitizers:
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [ address, thread ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    name: sanitizers (${{ matrix.sanitizer }})
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Install Clang and its sanitizer runtimes
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang libclang-rt-18-dev
+
+    - name: Build under the sanitizer
+      run: uv run --no-project python tools/sanitizers.py build ${{ matrix.sanitizer }}
+
+    - name: pytest
+      run: >
+        .venv/bin/python tools/sanitizers.py run ${{ matrix.sanitizer }} sanitizer-logs --
+        .venv/bin/python -m pytest -rs
+
+    - name: Fuzz each target for a minute
+      if: matrix.sanitizer == 'address'
+      run: |
+        mkdir -p fuzz-crashes
+        for target in load pixels digest; do
+          .venv/bin/python tools/sanitizers.py run fuzz sanitizer-logs -- \
+            .venv/bin/python tools/fuzz.py "$target" -max_total_time=60 -max_len=65536 \
+            -artifact_prefix=fuzz-crashes/
+        done
+
+    - name: Sanitizer reports
+      if: ${{ !cancelled() }}
+      run: .venv/bin/python tools/sanitizers.py check sanitizer-logs
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: failure()
+      with:
+        name: sanitizers-${{ matrix.sanitizer }}
+        path: |
+          sanitizer-logs/
+          fuzz-crashes/
+        if-no-files-found: ignore
