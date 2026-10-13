@@ -6,7 +6,7 @@
 |---|---|
 | newest `2.x` release | yes |
 | older `2.x` releases | no: upgrade to the newest |
-| `1.x` | no: see [`MIGRATION.md`](MIGRATION.md) to upgrade |
+| `1.x` | no: see [`MIGRATION.md`](https://github.com/gudoshnikovn/python-libphash/blob/main/MIGRATION.md) to upgrade |
 
 Only the newest release receives fixes. The hash values of a release depend on the
 bundled libphash version (`X.Y.Z` of `X.Y.Z.N`); see `CHANGELOG.md` before moving to a

@@ -1,0 +1,147 @@
+# The documentation site, built from docs/ by Zensical:
+#   uv run --group docs zensical build --strict    # into build/site/
+#   uv run --group docs zensical serve             # live, on 127.0.0.1:8000
+# The theory of perceptual hashing (the algorithms, comparing, choosing a threshold) is
+# on libphash's site and is linked, not repeated. Code on the pages is either included
+# from examples/ (which tests/test_examples.py runs) or run by tests/test_docs.py.
+
+[project]
+site_name = "python-libphash"
+site_description = "Perceptual image hashing in Python: the binding of the libphash C library"
+site_url = "https://gudoshnikovn.github.io/python-libphash/"
+repo_url = "https://github.com/gudoshnikovn/python-libphash"
+repo_name = "gudoshnikovn/python-libphash"
+copyright = "python-libphash is released under the MIT License."
+docs_dir = "docs"
+site_dir = "build/site"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Guide" = [
+    { "Quick start" = "guide/quickstart.md" },
+    { "Installing" = "guide/install.md" },
+    { "Loading images" = "guide/loading.md" },
+    { "Configuring" = "guide/configuring.md" },
+    { "Handling errors" = "guide/errors.md" },
+    { "Hashing many images" = "guide/batch.md" },
+    { "Threads and processes" = "guide/concurrency.md" },
+    { "Storing and searching" = "guide/storing.md" },
+    { "Performance" = "guide/performance.md" },
+    { "Examples" = "guide/examples.md" },
+    { "Migrating from 1.x" = "guide/migration.md" },
+  ] },
+  { "Theory (libphash)" = [
+    { "Perceptual hashing" = "https://gudoshnikovn.github.io/libphash/theory/perceptual-hashing/" },
+    { "Comparing hashes" = "https://gudoshnikovn.github.io/libphash/theory/comparing/" },
+    { "Choosing an algorithm" = "https://gudoshnikovn.github.io/libphash/theory/choosing/" },
+  ] },
+  { "API reference" = [
+    { "Overview" = "api/index.md" },
+    { "Hashing" = "api/hashing.md" },
+    { "Config" = "api/config.md" },
+    { "Digests and comparison" = "api/digests.md" },
+    { "Batches" = "api/batch.md" },
+    { "Errors" = "api/errors.md" },
+    { "Build and types" = "api/build.md" },
+  ] },
+  { "Project" = [
+    { "Versions" = "project/versions.md" },
+    { "Changelog" = "project/changelog.md" },
+    { "Security" = "project/security.md" },
+    { "Contributing" = "project/contributing.md" },
+  ] },
+]
+
+extra_css = ["stylesheets/site.css"]
+
+[project.theme]
+language = "en"
+logo = "assets/logo.svg"
+favicon = "assets/logo.svg"
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+toc.slugify = { object = "pymdownx.slugs.slugify", kwds = { case = "lower" } }
+pymdownx.betterem = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+# Included files are named from the repository root; a missing one fails the build.
+pymdownx.snippets.base_path = ["."]
+pymdownx.snippets.dedent_subsections = true
+pymdownx.snippets.check_paths = true
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+
+# The API reference, from the docstrings of the package's source.
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+# The `#:` comments above attributes are their documentation (Config's fields).
+extensions = ["griffe_sphinx"]
+docstring_style = "sphinx"
+show_source = false
+show_root_heading = true
+show_root_full_path = false
+show_signature_annotations = true
+separate_signature = true
+signature_crossrefs = true
+members_order = "source"
+merge_init_into_class = true
+show_if_no_docstring = false
+filters = ["!^_"]

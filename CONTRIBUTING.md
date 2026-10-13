@@ -140,9 +140,9 @@ Each libphash release gets its binding:
 ## Reporting a security issue
 
 Do not open a public issue or pull request for a vulnerability. See
-[`SECURITY.md`](SECURITY.md) for the private channel.
+[`SECURITY.md`](https://github.com/gudoshnikovn/python-libphash/blob/main/SECURITY.md) for the private channel.
 
 ## License
 
 By contributing, you agree that your contribution is licensed under the project's
-[MIT license](LICENSE).
+[MIT license](https://github.com/gudoshnikovn/python-libphash/blob/main/LICENSE).

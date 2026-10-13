@@ -16,7 +16,7 @@ Nothing yet.
 
 The first release on libphash 2 (2.0.1; 1.4.1 bundles libphash 1.10.4), with a new
 Python API. **Hash values change**, and code written for 1.x does not run unchanged:
-read [`MIGRATION.md`](MIGRATION.md) before upgrading.
+read [`MIGRATION.md`](https://github.com/gudoshnikovn/python-libphash/blob/main/MIGRATION.md) before upgrading.
 
 ### BREAKING CHANGES
 
@@ -85,6 +85,10 @@ read [`MIGRATION.md`](MIGRATION.md) before upgrading.
   interchangeable with libphash's), `hash_to_hex()`, `hash_from_hex()`;
   `Digest.from_uint64()`.
 - `libphash_version()`, `build_info()`, `can_decode()`, `digest_info()`.
+- **A documentation site: <https://gudoshnikovn.github.io/python-libphash/>.** Guides to
+  installing, loading, configuring, errors, batches, threads and processes, storage and
+  search, and performance, the API reference from the docstrings, and the examples; the
+  theory links to libphash's site. The code on every page runs in the test suite.
 - `examples/`: runnable scripts, each checked by the tests against the output its
   docstring shows: loading from every source, configuration, duplicates in a batch,
   SQLite storage, nearest hashes with numpy, a BK-tree, concurrency, and choosing a

@@ -70,6 +70,15 @@ dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "psutil", "c
 # Not part of "dev": atheris has wheels for Linux x86-64 and CPython 3.12+ only, and the
 # sanitizer job of CI, which runs the fuzzers, installs it with --group fuzz.
 [dependency-groups]
+# The documentation site (zensical.toml). Zensical is young and its output changes
+# between releases: the version is pinned, and raised in a commit of its own. It needs
+# Python 3.11, so the group is empty on 3.10.
+docs = [
+  "zensical==0.0.68; python_version >= '3.11'",
+  "mkdocstrings-python; python_version >= '3.11'",
+  # Reads the `#:` comments above attributes (Config's fields) as their docstrings.
+  "griffe-sphinx; python_version >= '3.11'",
+]
 fuzz = [
   "atheris>=3.1; sys_platform == 'linux' and platform_machine == 'x86_64' and python_version >= '3.12'",
 ]
