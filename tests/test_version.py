@@ -10,7 +10,8 @@ import pytest
 import libphash
 from libphash._native import ffi, lib
 
-NATIVE_DIR = Path(__file__).resolve().parent.parent / "native" / "libphash"
+ROOT = Path(__file__).resolve().parent.parent
+NATIVE_DIR = ROOT / "native" / "libphash"
 
 
 def c_version() -> str:
@@ -47,3 +48,9 @@ def test_submodule_is_on_the_release_tag() -> None:
 def test_version_number_encodes_the_version() -> None:
     major, minor, patch = (int(n) for n in c_version().split("."))
     assert lib.ph_version_number() == major * 1_000_000 + minor * 1000 + patch
+
+
+def test_changelog_has_an_entry_for_the_version() -> None:
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    heading = re.escape(f"## [{libphash.__version__}] - ")
+    assert re.search(rf"^{heading}", changelog, re.MULTILINE)

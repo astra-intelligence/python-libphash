@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/gudoshnikovn/python-libphash/security/advisories/new
+    about: Report security issues privately, not in a public issue (see SECURITY.md).
+  - name: libphash (the C library)
+    url: https://github.com/gudoshnikovn/libphash/issues
+    about: Hash algorithms, decoders and the C API.

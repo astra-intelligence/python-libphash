@@ -117,6 +117,7 @@ source_paths = ["src/libphash/"]
 # tests miss; run for each mutant, they would multiply the run's time.
 pytest_add_cli_args_test_selection = ["tests/", "--ignore=tests/test_memory.py"]
 also_copy = [
+  "CHANGELOG.md",
   "native/libphash/include",
   "native/libphash/tests/data",
   "tools",
