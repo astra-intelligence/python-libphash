@@ -54,13 +54,17 @@ jobs:
     - name: Build (warnings fail)
       run: uv run --locked --only-group docs zensical build --strict
 
-    # Internal links and anchors offline; links to other sites too, except where a site
-    # refuses robots.
+    # Every link and anchor. The site's own address, in each page's canonical link and in
+    # the pages made from the README and the changelog, and the root-relative links of
+    # 404.html are mapped onto the build, which is what that address serves;
+    # links into main on GitHub are skipped, since a branch may add the file they name.
     - name: Check the links
       uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
       with:
         args: >-
-          --root-dir build/site --include-fragments --no-progress
+          --root-dir ${{ github.workspace }}/build/site --include-fragments --no-progress
+          --remap '^https://gudoshnikovn\.github\.io/python-libphash/(.*)$ file://${{ github.workspace }}/build/site/$1'
+          --remap '^file://(.*)/build/site/python-libphash(/.*)?$ file://$1/build/site$2'
           --exclude '^https://github\.com/gudoshnikovn/python-libphash/(blob|tree)/main/'
           'build/site/**/*.html'
         fail: true
