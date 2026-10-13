@@ -52,7 +52,7 @@ How the extension is built:
 - **`MANIFEST.in`** — the sdist carries only what libphash's CMake build reads (`CMakeLists.txt`, `cmake/`, `include/`, `src/`, `vendor/`, licenses), enough to build offline; not the tests, which need libphash's fixtures.
 - **Licenses** — `license` in `pyproject.toml` is the SPDX expression of everything the wheel links, and `license-files` carries each library's license into the wheel.
 
-Wheels are built for the platforms libphash's own CI supports: Linux x86-64 and arm64 (manylinux), macOS arm64, Windows x86-64 (`[tool.cibuildwheel]` in `pyproject.toml`). Elsewhere pip builds the sdist; `tools/native.py` still honours `ARCHFLAGS` on macOS and the Python's architecture on Windows. Platforms are verified in CI on native runners, never under emulation.
+Wheels are built for the platforms libphash's own CI supports: Linux x86-64 and arm64 (manylinux), macOS arm64, Windows x86-64 (`[tool.cibuildwheel]` in `pyproject.toml`). The module uses only the limited API (cffi), so `setup.py` tags a wheel built under the GIL `cp310-abi3`: cibuildwheel builds it on 3.10 and tests it on each later CPython; each free-threaded CPython, which has no stable ABI, gets its own wheel. Elsewhere pip builds the sdist; `tools/native.py` still honours `ARCHFLAGS` on macOS and the Python's architecture on Windows. Platforms are verified in CI on native runners, never under emulation.
 
 ## Architecture
 

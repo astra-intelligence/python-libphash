@@ -15,7 +15,9 @@ Wheels exist for the platforms libphash's own CI builds and tests:
 | macOS arm64 (11 or later) | `macosx_11_0_arm64` |
 | Windows x86-64 | `win_amd64` |
 
-for every CPython from 3.10 on, and for the free-threaded builds from 3.14t on. Each
+for every CPython from 3.10 on, and for the free-threaded builds from 3.14t on: one
+`abi3` wheel per platform serves every CPython with the GIL, a later release of Python
+included, and each free-threaded version has a wheel of its own. Each
 wheel links libphash and its decoders statically (libjpeg-turbo, libpng, libwebp,
 zlib-ng, stb_image), and needs only the system's C library: no system libpng or libjpeg
 is used, and the decoders inside cannot clash with another copy of the same libraries in

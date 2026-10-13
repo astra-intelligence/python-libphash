@@ -1,17 +1,20 @@
 name: Wheels
 
 # Every wheel a release has, built and tested by cibuildwheel (configuration in
-# pyproject.toml, which also says which platforms get wheels). The code itself is
-# tested on every platform by ci.yml; what only a wheel build exercises is the build:
-# the manylinux images, the free-threaded builds, the repair of each wheel and the
-# cibuildwheel configuration. Beyond each wheel's test suite, every wheel writes the
-# hashes of every fixture, and the tables of all platforms must be the same byte for
-# byte; and libphash configured without libjpeg-turbo, decoding JPEG with stb_image,
-# passes the suite with its own golden hashes. Every wheel and the sdist pass
-# tools/audit.py (exports, dependencies, licenses, SBOM, contents) and twine's checks;
-# the sdist is built twice and must be the same bytes, and a wheel is built from it
-# without an index. So the workflow runs when a file the build reads changes, by hand,
-# and from release.yml, which publishes the artifacts it uploads.
+# pyproject.toml, which also says which platforms get wheels): per platform one abi3
+# wheel, built on the oldest CPython and tested on each later one, and a wheel per
+# free-threaded CPython. The code itself is tested on every platform by ci.yml; what
+# only a wheel build exercises is the build: the manylinux images, the free-threaded
+# builds, the repair of each wheel and the cibuildwheel configuration. Beyond each
+# wheel's test suite, every wheel writes the hashes of every fixture under each Python
+# it is for, and the tables of all platforms must be the same byte for byte; and
+# libphash configured without libjpeg-turbo, decoding JPEG with stb_image, passes the
+# suite with its own golden hashes. Every wheel and the sdist pass tools/audit.py
+# (exports, dependencies, licenses, SBOM, contents) and twine's checks, and abi3audit
+# holds the abi3 wheel to the limited API of 3.10; the sdist is built twice and must be
+# the same bytes, and a wheel is built from it without an index. So the workflow runs
+# when a file the build reads changes, by hand, and from release.yml, which publishes
+# the artifacts it uploads.
 on:
   push:
     branches: [ main, 'release/**' ]
@@ -79,6 +82,7 @@ jobs:
       shell: bash
       run: |
         uv run --no-project --with lief --with 'setuptools>=77' python tools/audit.py wheelhouse/*.whl
+        uvx abi3audit --strict --verbose wheelhouse/*-abi3-*.whl
         uvx twine check --strict wheelhouse/*.whl
         uvx check-wheel-contents wheelhouse/*.whl
 
@@ -88,9 +92,10 @@ jobs:
         path: wheelhouse/*.whl
         if-no-files-found: error
 
-    # Each wheel with the Python it is for, installed by uv on the runner itself: every
+    # Each wheel with each Python it is for, installed by uv on the runner itself: every
     # wheel is for the runner's own architecture, and a manylinux wheel runs on Ubuntu.
-    # The ABI tag names the Python (cp312 -> 3.12, cp314t -> 3.14t).
+    # The abi3 wheel serves every CPython with the GIL from 3.10 on; a free-threaded
+    # wheel's ABI tag names its Python (cp314t -> 3.14t).
     - name: Hash tables of the wheels
       shell: bash
       run: |
@@ -98,8 +103,15 @@ jobs:
         for wheel in wheelhouse/*.whl; do
           name=$(basename "$wheel" .whl)
           abi=$(echo "$name" | cut -d- -f4)
-          uv run --no-project --python "${abi:2:1}.${abi:3}" --with "$wheel" \
-            python tools/hash_table.py native/libphash/tests/data > "tables/$name.txt"
+          if [ "$abi" = abi3 ]; then
+            pythons="3.10 3.11 3.12 3.13 3.14 3.15"
+          else
+            pythons="${abi:2:1}.${abi:3}"
+          fi
+          for python in $pythons; do
+            uv run --no-project --python "$python" --with "$wheel" \
+              python tools/hash_table.py native/libphash/tests/data > "tables/$name-$python.txt"
+          done
         done
 
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

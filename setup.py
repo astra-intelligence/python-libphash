@@ -1,6 +1,7 @@
 """Build the CFFI extension, with libphash built by its own CMake project first."""
 
 import sys
+import sysconfig
 from pathlib import Path
 
 from setuptools import setup
@@ -35,7 +36,18 @@ class BuildExt(build_ext):
 
 
 class BdistWheel(bdist_wheel):
-    """Add the SBOM of the statically linked libraries to the wheel (PEP 770)."""
+    """Tag the wheel abi3 and add the SBOM of the linked libraries to it (PEP 770).
+
+    cffi compiles the module against the limited API wherever the interpreter has one,
+    so one wheel built on 3.10 serves every later CPython with the GIL. A free-threaded
+    interpreter has no stable ABI: its wheel keeps the tag of its version (cp314t).
+    """
+
+    def finalize_options(self) -> None:
+        """Ask for the abi3 tag, from the oldest supported Python, under the GIL."""
+        if not sysconfig.get_config_var("Py_GIL_DISABLED"):
+            self.py_limited_api = "cp310"
+        super().finalize_options()
 
     def egg2dist(self, egginfo_path: str, distinfo_path: str) -> None:
         """Write the .dist-info directory, then its sboms/ entry."""

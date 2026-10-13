@@ -112,7 +112,8 @@ read [`MIGRATION.md`](https://github.com/gudoshnikovn/python-libphash/blob/main/
 - Releases are published with PEP 740 attestations on PyPI and build provenance on the
   GitHub Release (`SECURITY.md`, "Verifying a release"); the sdist is reproducible.
 - Wheels for Linux arm64 and Windows x86-64, and for the free-threaded builds of
-  CPython 3.14 and later. Paths with any characters, Cyrillic, CJK and emoji included, load on Windows.
+  CPython 3.14 and later. A wheel per platform for CPython with the GIL, tagged `abi3`:
+  it installs on every CPython from 3.10 on, a later one included. Paths with any characters, Cyrillic, CJK and emoji included, load on Windows.
 
 ### Changed
 
