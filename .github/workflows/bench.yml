@@ -1,0 +1,95 @@
+name: Benchmarks
+
+# A pull request's benchmarks against those of its base, in one job on one runner
+# (benchmarks/gate.py): the Python allocations of every load must stay as they are and a
+# batch within libphash's memory bound, and the cost of each call over C is compared
+# with the base's, as a warning. The results of both sides and the summary are uploaded.
+# Parallelism and process pools are not gated: on a shared runner they measure the
+# runner. The workflow runs on a pull request that changes what is measured, and by
+# hand against a chosen base.
+on:
+  pull_request:
+    branches: [ main, 'release/**' ]
+    paths:
+      - src/libphash/**
+      - tools/cdef.py
+      - tools/ffi.py
+      - tools/native.py
+      - native/libphash
+      - benchmarks/**
+      - setup.py
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/bench.yml
+  workflow_dispatch:
+    inputs:
+      base:
+        description: The commit, branch or tag to compare with.
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      LIBPHASH_REQUIRE_C_REFERENCE: '1'
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+
+    - uses: ./.github/actions/setup
+
+    - name: Check out the base
+      id: base
+      env:
+        BASE: ${{ github.event.pull_request.base.sha || inputs.base }}
+      run: |
+        git worktree add "$RUNNER_TEMP/base" "$BASE"
+        if [ ! -d "$RUNNER_TEMP/base/benchmarks" ]; then
+          echo "::notice::the base has no benchmarks; nothing to compare with"
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        git -C "$RUNNER_TEMP/base" submodule update --init native/libphash
+        git -C "$RUNNER_TEMP/base/native/libphash" submodule update --init --recursive --depth 1
+
+    # Each side builds and measures itself with its own harness; a case only one side
+    # has is skipped by the gate.
+    - name: Benchmark the base
+      if: steps.base.outputs.skip != 'true'
+      working-directory: ${{ runner.temp }}/base
+      run: |
+        uv sync --locked --all-extras
+        uv run python -m benchmarks --blocks overhead,memory --out "$RUNNER_TEMP/results" --name base
+
+    - name: Benchmark the head
+      if: steps.base.outputs.skip != 'true'
+      run: |
+        uv sync --locked --all-extras
+        uv run python -m benchmarks --blocks overhead,memory --out "$RUNNER_TEMP/results" --name head
+
+    - name: Gate
+      if: steps.base.outputs.skip != 'true'
+      run: |
+        status=0
+        uv run python -m benchmarks.gate "$RUNNER_TEMP/results/base.json" \
+          "$RUNNER_TEMP/results/head.json" --summary "$RUNNER_TEMP/results/gate.md" || status=$?
+        cat "$RUNNER_TEMP/results/gate.md" >> "$GITHUB_STEP_SUMMARY"
+        exit $status
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: always() && steps.base.outputs.skip != 'true'
+      with:
+        name: benchmarks
+        path: ${{ runner.temp }}/results/
+        if-no-files-found: ignore
+        retention-days: 30

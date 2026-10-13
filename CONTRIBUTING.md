@@ -64,6 +64,16 @@ uv run typos
   it for every fixture, setting and pixel layout. It needs CMake; without it the tests
   skip locally and fail in CI.
 - **A change to the stub's inputs regenerates it**: `uv run python tools/stub.py`.
+- **No new copy in Python, no slower call.** A pull request that changes the package
+  or the build runs the benchmarks of its base and of its head on one runner
+  (`.github/workflows/bench.yml`). The Python allocations of every load must stay as
+  they are, and a batch within libphash's memory bound; a call whose cost over C grows
+  is reported as a warning. Locally, against a checkout of the base:
+
+  ```bash
+  uv run python -m benchmarks --blocks overhead,memory --name head --out results
+  uv run python -m benchmarks.gate results/base.json results/head.json
+  ```
 
 Sanitizer builds (AddressSanitizer with UndefinedBehaviorSanitizer, ThreadSanitizer) and
 the fuzz targets need Linux with Clang; `tools/sanitizers.py` and `tools/fuzz.py` say
