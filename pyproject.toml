@@ -183,6 +183,7 @@ also_copy = [
   "README.md",
   "docs",
   "examples",
+  "native/libphash/examples",
   "native/libphash/include",
   "native/libphash/tests/data",
   "tools",
