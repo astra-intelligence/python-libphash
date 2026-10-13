@@ -1,6 +1,6 @@
 include README.md
 include LICENSE
-include tools/cdef.py tools/ffi.py tools/native.py
+include tools/cdef.py tools/ffi.py tools/native.py tools/sbom.py tools/sdist.py
 
 # libphash: what its CMake build reads with tests, fuzzers and the site tooling off,
 # and its licenses. The vendored decoders are taken whole: their own CMake projects
@@ -13,4 +13,8 @@ graft native/libphash/cmake
 graft native/libphash/include
 graft native/libphash/src
 graft native/libphash/vendor
+prune native/libphash/vendor/*/.github
+# The tests read libphash's fixtures and the C reference, which the sdist does not
+# carry; setuptools would add tests/test_*.py on its own.
+prune tests
 global-exclude .git .gitattributes .DS_Store

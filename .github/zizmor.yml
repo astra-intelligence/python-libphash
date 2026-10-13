@@ -1,0 +1,6 @@
+# zizmor's configuration (ci.yml runs it on every workflow).
+rules:
+  # A local action is referenced as ./.github/actions/setup, the form the workflows
+  # have used since before GitHub added its own self-repository syntax.
+  self-repository:
+    disable: true

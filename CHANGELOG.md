@@ -93,6 +93,12 @@ read [`MIGRATION.md`](MIGRATION.md) before upgrading.
 - Thread safety: a context may be shared between threads, its calls are serialized;
   `Config`, `Digest`, results and errors are immutable and pickle, so they cross
   process boundaries.
+- A software bill of materials in every wheel (`.dist-info/sboms/`, CycloneDX): libphash
+  and each library linked into it, with its version and license. The license of each
+  bundled library is in the wheel and the sdist, and `License-Expression` covers them
+  all.
+- Releases are published with PEP 740 attestations on PyPI and build provenance on the
+  GitHub Release (`SECURITY.md`, "Verifying a release"); the sdist is reproducible.
 - Wheels for Linux arm64 and Windows x86-64, and for the free-threaded builds of
   CPython 3.14 and later. Paths with any characters, Cyrillic, CJK and emoji included, load on Windows.
 
@@ -109,6 +115,7 @@ read [`MIGRATION.md`](MIGRATION.md) before upgrading.
   spng 0.7.4, which has had no release since May 2023.
 - **zlib is linked into the wheel** (zlib-ng); the 1.4.1 wheels for Linux used the
   system's zlib.
+- cffi 2.0 or later is required (1.4.1: 1.15).
 - Bundled libraries: libphash 2.0.1, libjpeg-turbo 3.2.0, libpng 1.6.59, libwebp 1.6.0,
   zlib-ng 2.3.3, stb_image 2.30.
 

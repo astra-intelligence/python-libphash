@@ -54,6 +54,32 @@ jobs:
     - name: typos
       run: uv run --no-sync typos
 
+  # The workflows, by zizmor (configuration in .github/zizmor.yml), online so that it
+  # can check that every pinned SHA belongs to the action it claims; and the locked
+  # dependencies against the advisory databases (PyPI's and OSV's) with pip-audit.
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+      with:
+        submodules: 'false'
+
+    - name: zizmor
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: uvx zizmor@1.30.1 --format=github .github/
+
+    - name: pip-audit
+      run: |
+        uv export --locked --all-extras --format requirements-txt --no-emit-project \
+          > "$RUNNER_TEMP/requirements.txt"
+        uvx pip-audit@2.10.1 --disable-pip -r "$RUNNER_TEMP/requirements.txt"
+
   # The type checks see the package as a developer's environment has it: installed, so
   # that the tests resolve `libphash`, with the extension built, so that the generated
   # stub can be compared with the module it describes.

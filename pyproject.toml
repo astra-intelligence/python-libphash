@@ -1,7 +1,10 @@
 [build-system]
 requires = [
-  "setuptools>=61.0",
-  "cffi>=1.15.0",
+  # 77: license-files of PEP 639; bdist_wheel is setuptools' own since 70.1.
+  "setuptools>=77",
+  # cffi 2 is the first with CPython 3.14 and the free-threaded builds; a module it
+  # generates needs its own backend or newer at runtime, hence the same bound below.
+  "cffi>=2.0",
   "cmake>=3.21",
   # Ninja under MSVC needs a developer command prompt; CMake's default
   # Visual Studio generator does not.
@@ -12,22 +15,57 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "python-libphash"
 dynamic = ["version"]
-description = "High-performance perceptual hashing library (CFFI bindings)"
+description = "Perceptual image hashing: Python binding for the libphash C library"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-authors = [{ name = "gudoshnikovn", email = "gudoshnikovna@gmail.com" }]
-classifiers = [
-  "Programming Language :: Python :: 3",
-  "Programming Language :: C",
-  "Topic :: Multimedia :: Graphics",
+# The wheel links libphash (MIT) and the libraries it vendors: libjpeg-turbo's libjpeg
+# (IJG, its SIMD code Zlib), libpng, libwebp, zlib-ng and the stb headers.
+license = "MIT AND IJG AND Zlib AND libpng-2.0 AND BSD-3-Clause AND (MIT OR Unlicense)"
+# libphash's LICENSE is this project's, word for word, and is not repeated.
+license-files = [
+  "LICENSE",
+  "native/libphash/THIRD-PARTY-NOTICES.md",
+  "native/libphash/vendor/libjpeg-turbo/LICENSE.md",
+  "native/libphash/vendor/libjpeg-turbo/README.ijg",
+  "native/libphash/vendor/libpng/LICENSE",
+  "native/libphash/vendor/libwebp/COPYING",
+  "native/libphash/vendor/libwebp/PATENTS",
+  "native/libphash/vendor/zlib-ng/LICENSE.md",
 ]
-dependencies = ["cffi>=1.15.0"]
+authors = [{ name = "gudoshnikovn", email = "gudoshnikovna@gmail.com" }]
+keywords = ["perceptual hash", "phash", "image hashing", "duplicate images", "dhash"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Multimedia :: Graphics",
+  "Topic :: Scientific/Engineering :: Image Recognition",
+  "Typing :: Typed",
+]
+dependencies = ["cffi>=2.0"]
+
 [project.urls]
-"Homepage" = "https://github.com/gudoshnikovn/python-libphash"
+Homepage = "https://github.com/gudoshnikovn/python-libphash"
+Source = "https://github.com/gudoshnikovn/python-libphash"
+Issues = "https://github.com/gudoshnikovn/python-libphash/issues"
+Changelog = "https://github.com/gudoshnikovn/python-libphash/blob/main/CHANGELOG.md"
+"libphash" = "https://gudoshnikovn.github.io/libphash/"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "psutil", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "types-psutil", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'"]
+dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "psutil", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "types-psutil", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'", "lief"]
 
 # Not part of "dev": atheris has wheels for Linux x86-64 and CPython 3.12+ only, and the
 # sanitizer job of CI, which runs the fuzzers, installs it with --group fuzz.
@@ -62,6 +100,8 @@ test-command = "pytest {project}/tests -rs"
 # CMake and Ninja come from build-system.requires. nasm gives libjpeg-turbo its x86
 # SIMD; without it the decoder builds without SIMD, slower but with the same hashes.
 [tool.cibuildwheel.linux]
+# The wheels are dated to the commit (wheels.yml); the build runs in a container.
+environment-pass = ["SOURCE_DATE_EPOCH"]
 # The runner's own architecture: x86-64 and arm64 each build on a native runner, and
 # the default would add i686 on x86-64.
 archs = ["native"]

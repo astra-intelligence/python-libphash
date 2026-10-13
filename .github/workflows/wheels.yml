@@ -7,8 +7,11 @@ name: Wheels
 # cibuildwheel configuration. Beyond each wheel's test suite, every wheel writes the
 # hashes of every fixture, and the tables of all platforms must be the same byte for
 # byte; and libphash configured without libjpeg-turbo, decoding JPEG with stb_image,
-# passes the suite with its own golden hashes. So the workflow runs when a file the
-# build reads changes, and by hand.
+# passes the suite with its own golden hashes. Every wheel and the sdist pass
+# tools/audit.py (exports, dependencies, licenses, SBOM, contents) and twine's checks;
+# the sdist is built twice and must be the same bytes, and a wheel is built from it
+# without an index. So the workflow runs when a file the build reads changes, by hand,
+# and from release.yml, which publishes the artifacts it uploads.
 on:
   push:
     branches: [ main, 'release/**' ]
@@ -19,6 +22,9 @@ on:
       - tools/cdef.py
       - tools/ffi.py
       - tools/native.py
+      - tools/sbom.py
+      - tools/sdist.py
+      - tools/audit.py
       - tools/hash_table.py
       - native/libphash
       - .github/actions/setup/**
@@ -27,12 +33,15 @@ on:
     branches: [ main, 'release/**' ]
     paths: *build-paths
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
+# Named, not ${{ github.workflow }}: called from release.yml, that would be the
+# caller's name, and the group the caller itself holds.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: wheels-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -56,9 +65,22 @@ jobs:
 
     - uses: ./.github/actions/setup
 
+    # Every file in the wheel is dated to the commit, so that the same commit gives the
+    # same wheel (pyproject.toml passes the variable into the manylinux container).
+    - name: Date the build to the commit
+      shell: bash
+      run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
     - uses: pypa/cibuildwheel@b3395e271a35f73dad77f21802abe9b986dfe299 # v4.3.1
       env:
         CIBW_BUILD: '*-${{ matrix.platform }}'
+
+    - name: Audit the wheels
+      shell: bash
+      run: |
+        uv run --no-project --with lief --with 'setuptools>=77' python tools/audit.py wheelhouse/*.whl
+        uvx twine check --strict wheelhouse/*.whl
+        uvx check-wheel-contents wheelhouse/*.whl
 
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
@@ -112,6 +134,48 @@ jobs:
         done
         echo "${#tables[@]} tables of $(wc -l < "${tables[0]}") lines"
         exit $status
+
+  # The sdist, built twice from the commit and compared byte for byte, audited, and
+  # built into a wheel by pip without an index or network access to build tools: what
+  # an offline build from the sdist does.
+  sdist:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Build the sdist twice
+      run: |
+        SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+        export SOURCE_DATE_EPOCH
+        uv build --sdist -o dist
+        uv build --sdist -o "$RUNNER_TEMP/again"
+        cmp dist/*.tar.gz "$RUNNER_TEMP"/again/*.tar.gz
+        sha256sum dist/*.tar.gz >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Audit the sdist
+      run: |
+        uv run --no-project --with lief --with 'setuptools>=77' python tools/audit.py dist/*.tar.gz
+        uvx twine check --strict dist/*.tar.gz
+
+    - name: Build a wheel from the sdist without an index
+      run: |
+        uv venv "$RUNNER_TEMP/offline"
+        VIRTUAL_ENV="$RUNNER_TEMP/offline" uv pip install pip setuptools cffi cmake ninja
+        "$RUNNER_TEMP/offline/bin/python" -m pip wheel --no-index --no-build-isolation \
+          --no-deps -w "$RUNNER_TEMP/wheel" dist/*.tar.gz
+        "$RUNNER_TEMP/offline/bin/python" -m pip install --no-index --no-deps "$RUNNER_TEMP"/wheel/*.whl
+        "$RUNNER_TEMP/offline/bin/python" -c "import libphash; print(libphash.build_info())"
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: sdist
+        path: dist/*.tar.gz
+        if-no-files-found: error
 
   # libphash configured without libjpeg-turbo decodes JPEG with stb_image, as its own CI
   # tests: the suite picks the stb golden file and the parity tests build their C

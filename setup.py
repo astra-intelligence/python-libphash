@@ -4,9 +4,14 @@ import sys
 from pathlib import Path
 
 from setuptools import setup
+from setuptools.command.bdist_wheel import bdist_wheel
 from setuptools.command.build_ext import build_ext
+from setuptools.command.sdist import sdist
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
+import sbom
+import sdist as reproducible
+
 from native import build_libphash, link_arguments
 
 
@@ -29,7 +34,26 @@ class BuildExt(build_ext):
         super().run()
 
 
+class BdistWheel(bdist_wheel):
+    """Add the SBOM of the statically linked libraries to the wheel (PEP 770)."""
+
+    def egg2dist(self, egginfo_path: str, distinfo_path: str) -> None:
+        """Write the .dist-info directory, then its sboms/ entry."""
+        super().egg2dist(egginfo_path, distinfo_path)
+        sbom.write(Path(distinfo_path) / "sboms", self.distribution.get_version())
+
+
+class Sdist(sdist):
+    """Write the sdist so that the same sources give the same bytes."""
+
+    def make_distribution(self) -> None:
+        """Make the archives, then rewrite each reproducibly."""
+        super().make_distribution()
+        for archive in self.archive_files:
+            reproducible.normalize(Path(archive))
+
+
 setup(
     cffi_modules=["tools/ffi.py:ffibuilder"],
-    cmdclass={"build_ext": BuildExt},
+    cmdclass={"build_ext": BuildExt, "bdist_wheel": BdistWheel, "sdist": Sdist},
 )

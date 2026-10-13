@@ -122,9 +122,11 @@ changes a hash.
 ## Releases
 
 A release is cut from a `release/vX.Y.Z.N` branch. The version in `_version.py`, the
-`CHANGELOG.md` entry with its date and the tag must agree; the publish workflow checks
-that the tag equals the package version before it uploads anything. Each libphash
-release gets its binding:
+`CHANGELOG.md` entry with its date and the tag must agree; the release workflow
+(`release.yml`) checks them, and that the tag is signed and the submodule sits on
+libphash's tag, before it uploads anything.
+
+Each libphash release gets its binding:
 
 1. Move `native/libphash` to the new tag
    (`git -C native/libphash checkout vX.Y.Z`, with its submodules updated).
