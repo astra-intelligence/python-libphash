@@ -27,6 +27,7 @@ nav = [
     { "Threads and processes" = "guide/concurrency.md" },
     { "Storing and searching" = "guide/storing.md" },
     { "Performance" = "guide/performance.md" },
+    { "Command line" = "guide/cli.md" },
     { "Examples" = "guide/examples.md" },
     { "Migrating from 1.x" = "guide/migration.md" },
   ] },

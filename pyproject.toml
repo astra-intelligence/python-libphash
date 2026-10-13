@@ -57,6 +57,9 @@ classifiers = [
 ]
 dependencies = ["cffi>=2.0"]
 
+[project.scripts]
+libphash = "libphash._cli:main"
+
 [project.urls]
 Homepage = "https://github.com/gudoshnikovn/python-libphash"
 Source = "https://github.com/gudoshnikovn/python-libphash"

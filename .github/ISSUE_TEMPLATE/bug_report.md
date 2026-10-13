@@ -14,7 +14,7 @@ labels: bug
 <!-- Required: a wrong hash or a failed decode often depends on the decoder a wheel
      carries, and on whether it was built from the sdist. Paste the output of:
 
-     python -c "import sys, platform, libphash; print(libphash.__version__, sys.version, platform.platform(), libphash.build_info(), sep='\n')"
+     python -m libphash info
 -->
 
 ```text

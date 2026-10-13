@@ -64,6 +64,7 @@ The public API is what `src/libphash/__init__.py` exports; every other module is
 - **`_digest.py`** — `Digest` (bytes + `DigestKind`, immutable; each comparison accepts only its kinds) and the 64-bit helpers.
 - **`_algorithms.py`** — `Algorithm` and `DigestKind` enums (literal values, checked against the C enums by a test) and name/flag conversion.
 - **`_batch.py`** — `hash_files()` / `hash_buffers()` over `ph_hash_*_ex`; callbacks are `extern "Python"` (`@ffi.def_extern`); a callback's exception is re-raised after the call; Ctrl+C reaches `should_continue` through `signal.set_wakeup_fd`.
+- **`_cli.py`** — the command line (`libphash` in `[project.scripts]`, `python -m libphash` through `__main__.py`): `info`, `hash`, `compare`, `dupes`, standard library only; exit status 0, 1 when some file failed, 2 for a wrong command line, 130 on Ctrl+C.
 - **`_sources.py`** — paths (`os.fsencode`; on Windows files are read in Python, because libphash opens paths with the ANSI code page), arrays (zero-copy when rows are the only gaps), Pillow modes.
 - **`exceptions.py`** — the `PhashError` tree, nothing else. **`_errors.py`** — `make_error()` maps a `ph_error_t` to it. `ph_get_last_error_message()` is attached only to load errors: libphash writes it only on loads, so after a failed hash it holds a previous load's detail.
 - **`_native.pyi`** — generated stub for `ffi`/`lib` (see `tools/stub.py`); **`py.typed`** marks the package as typed.

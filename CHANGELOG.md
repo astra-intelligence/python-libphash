@@ -89,6 +89,10 @@ read [`MIGRATION.md`](https://github.com/gudoshnikovn/python-libphash/blob/main/
   installing, loading, configuring, errors, batches, threads and processes, storage and
   search, and performance, the API reference from the docstrings, and the examples; the
   theory links to libphash's site. The code on every page runs in the test suite.
+- A command, `libphash` (and `python -m libphash`): `hash` prints the hashes of files
+  and directories, `compare` compares two images by the measures of each algorithm,
+  `dupes` groups near-duplicates within a given number of bits, `info` prints the
+  versions and the build for bug reports; `--json` for scripts.
 - `examples/`: runnable scripts, each checked by the tests against the output its
   docstring shows: loading from every source, configuration, duplicates in a batch,
   SQLite storage, nearest hashes with numpy, a BK-tree, concurrency, and choosing a

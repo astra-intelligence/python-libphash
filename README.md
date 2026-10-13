@@ -43,6 +43,13 @@ results = ph.hash_files(["photo.jpg", "photo_copy.jpg"], threads=0)   # all CPUs
 Pillow image; `ImageContext` computes several hashes of one image and reuses its buffers
 from image to image; `Config` holds every setting of libphash and checks it.
 
+From a shell, `libphash hash`, `compare` and `dupes` do the same for files
+(`python -m libphash` where the command is not on `PATH`):
+
+```bash
+libphash dupes --max-bits 10 ~/Pictures
+```
+
 ## Scope
 
 Hashes are deterministic and unkeyed: they find the copies of a picture in a collection

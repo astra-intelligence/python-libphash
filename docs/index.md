@@ -39,7 +39,8 @@ hashed partly from C and partly from Python.
 
     Hash a directory on all CPUs, store the hashes and find the duplicates.
 
-    [Hashing many images](guide/batch.md) · [Storing and searching](guide/storing.md)
+    [Hashing many images](guide/batch.md) · [Storing and searching](guide/storing.md) ·
+    [Command line](guide/cli.md)
 
 -   **Pick an algorithm and a threshold**
 

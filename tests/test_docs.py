@@ -9,12 +9,18 @@ included from ``examples/`` is left to tests/test_examples.py.
 from __future__ import annotations
 
 import importlib.util
+import io
+import os
 import re
+import shlex
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 from conftest import data
+
+from libphash._cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = [*sorted((ROOT / "docs").rglob("*.md")), ROOT / "README.md"]
@@ -59,3 +65,44 @@ def test_page_code_runs(
     for i, block in enumerate(code):
         # The documentation's own code, run as a reader would.
         exec(compile(block, f"{page.name}[{i}]", "exec"), namespace)  # noqa: S102
+
+
+CONSOLE = re.compile(r"^```console\n(.*?)^```", re.MULTILINE | re.DOTALL)
+
+
+def commands(page: Path) -> list[tuple[str, str]]:
+    """Each ``$ libphash …`` line of the page's console blocks, and its output."""
+    found: list[tuple[str, str]] = []
+    for block in CONSOLE.findall(page.read_text(encoding="utf-8")):
+        for command in re.split(r"^\$ ", block, flags=re.MULTILINE)[1:]:
+            line, _, output = command.partition("\n")
+            found.append((line, output))
+    return found
+
+
+@pytest.mark.parametrize(
+    ("line", "output"),
+    commands(ROOT / "docs" / "guide" / "cli.md"),
+    ids=lambda v: v.split("\n")[0][:40],
+)
+def test_command_line_prints_what_the_page_shows(
+    line: str,
+    output: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name, fixture in IMAGES.items():
+        shutil.copy(data(fixture), tmp_path / name)
+    (tmp_path / "album").mkdir()
+    for name in ("photo.jpg", "photo_copy.jpg", "photo.png"):
+        shutil.copy(tmp_path / name, tmp_path / "album" / name)
+    monkeypatch.chdir(tmp_path)
+    # Standard output and error in one stream, in the order the command writes them.
+    stream = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setattr(sys, "stderr", stream)
+    program, *argv = shlex.split(line)
+    assert program == "libphash"
+    main(argv)
+    # The page writes paths with "/", the command with the platform's separator.
+    assert stream.getvalue() == output.replace("album/", "album" + os.sep)

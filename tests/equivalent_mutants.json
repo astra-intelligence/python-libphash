@@ -176,6 +176,46 @@
         ["-view = memoryview(cast(\"Buffer\", obj))", "+view = memoryview(cast(\"buffer\", obj))"],
         ["-view = memoryview(cast(\"Buffer\", obj))", "+view = memoryview(cast(\"BUFFER\", obj))"]
       ]
+    },
+    {
+      "function": "libphash._cli._parser",
+      "reason": "add_help=None is false, as False is: the parent parsers add no -h of their own either way.",
+      "mutants": [
+        ["-common = argparse.ArgumentParser(add_help=False)", "+common = argparse.ArgumentParser(add_help=None)"],
+        ["-configured = argparse.ArgumentParser(add_help=False)", "+configured = argparse.ArgumentParser(add_help=None)"]
+      ]
+    },
+    {
+      "function": "libphash._cli._measures",
+      "reason": "Both hashes come from one algorithm, so both are ints or both are Digests: 'and' and 'or' agree. typing.cast() returns its second argument unchanged.",
+      "mutants": [
+        ["-if not (isinstance(a, Digest) and isinstance(b, Digest)):", "+if not (isinstance(a, Digest) or isinstance(b, Digest)):"],
+        ["-a, b = cast(\"int\", a), cast(\"int\", b)", "+a, b = cast(None, a), cast(\"int\", b)"],
+        ["-a, b = cast(\"int\", a), cast(\"int\", b)", "+a, b = cast(\"XXintXX\", a), cast(\"int\", b)"],
+        ["-a, b = cast(\"int\", a), cast(\"int\", b)", "+a, b = cast(\"INT\", a), cast(\"int\", b)"],
+        ["-a, b = cast(\"int\", a), cast(\"int\", b)", "+a, b = cast(\"int\", a), cast(None, b)"],
+        ["-a, b = cast(\"int\", a), cast(\"int\", b)", "+a, b = cast(\"int\", a), cast(\"XXintXX\", b)"],
+        ["-a, b = cast(\"int\", a), cast(\"int\", b)", "+a, b = cast(\"int\", a), cast(\"INT\", b)"]
+      ]
+    },
+    {
+      "function": "libphash._cli._run_dupes",
+      "reason": "typing.cast() returns its second argument unchanged; the first is read only by type checkers.",
+      "mutants": [
+        ["-failed.append((result.source, cast(\"PhashError\", result.error)))", "+failed.append((result.source, cast(None, result.error)))"],
+        ["-failed.append((result.source, cast(\"PhashError\", result.error)))", "+failed.append((result.source, cast(\"XXPhashErrorXX\", result.error)))"],
+        ["-failed.append((result.source, cast(\"PhashError\", result.error)))", "+failed.append((result.source, cast(\"phasherror\", result.error)))"],
+        ["-failed.append((result.source, cast(\"PhashError\", result.error)))", "+failed.append((result.source, cast(\"PHASHERROR\", result.error)))"]
+      ]
+    },
+    {
+      "function": "libphash._cli.group_hashes",
+      "reason": "Comparing pairs more than once, or an image with itself, joins nothing new: the groups are the same, only slower.",
+      "mutants": [
+        ["-for j in range(i + 1, len(hashed)):", "+for j in range(len(hashed)):"],
+        ["-for j in range(i + 1, len(hashed)):", "+for j in range(i + 1, ):"],
+        ["-for j in range(i + 1, len(hashed)):", "+for j in range(i - 1, len(hashed)):"]
+      ]
     }
   ]
 }
