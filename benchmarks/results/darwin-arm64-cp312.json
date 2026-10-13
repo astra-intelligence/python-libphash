@@ -1,0 +1,2820 @@
+{
+ "environment": {
+  "date": "2026-10-13",
+  "machine": "Apple M3 Pro, 11 CPUs, 36 GiB",
+  "os": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "CPython 3.12.11",
+  "python-libphash": "2.0.1.0",
+  "build_info": "version=2.0.1 jpeg=libjpeg-turbo png=libpng webp=libwebp zlib=zlib-ng threads=on simd=neon mock=off",
+  "cffi": "2.1.1",
+  "numpy": "2.5.4",
+  "Pillow": "12.3.0",
+  "effort": "at least 5 runs and 1 s per case, after one run to warm up"
+ },
+ "blocks": [
+  {
+   "key": "overhead",
+   "title": "1. What a call costs: C, cffi and the binding",
+   "tables": [
+    {
+     "key": "load_file",
+     "title": "Loading a file",
+     "about": "A JPEG file into a context that is kept from load to load.",
+     "unit": "s",
+     "baseline_row": "C",
+     "baseline_column": null,
+     "rows": {
+      "C": {
+       "400\u00d7400": {
+        "value": 0.00023487501312,
+        "median": 0.000245291623287,
+        "runs": 4020
+       },
+       "20 Mpx": {
+        "value": 0.0599887915887,
+        "median": 0.0607982083457,
+        "runs": 16
+       }
+      },
+      "C through cffi": {
+       "400\u00d7400": {
+        "value": 0.00022866693325340748,
+        "median": 0.0002416670322418213,
+        "runs": 4084
+       },
+       "20 Mpx": {
+        "value": 0.058587957988493145,
+        "median": 0.05915599991567433,
+        "runs": 17
+       }
+      },
+      "load_file(str)": {
+       "400\u00d7400": {
+        "value": 0.00023241608869284391,
+        "median": 0.00024829094763845205,
+        "runs": 3970
+       },
+       "20 Mpx": {
+        "value": 0.05904591700527817,
+        "median": 0.06008495797868818,
+        "runs": 17
+       }
+      },
+      "load_file(Path)": {
+       "400\u00d7400": {
+        "value": 0.00023679202422499657,
+        "median": 0.0002442499389871955,
+        "runs": 4037
+       },
+       "20 Mpx": {
+        "value": 0.05745804205071181,
+        "median": 0.058748291921801865,
+        "runs": 18
+       }
+      },
+      "load(str)": {
+       "400\u00d7400": {
+        "value": 0.00023600005079060793,
+        "median": 0.00025337503757327795,
+        "runs": 2392
+       },
+       "20 Mpx": {
+        "value": 0.05737024999689311,
+        "median": 0.05782537499908358,
+        "runs": 18
+       }
+      }
+     },
+     "columns": [
+      "400\u00d7400",
+      "20 Mpx"
+     ]
+    },
+    {
+     "key": "load_bytes",
+     "title": "Loading encoded bytes",
+     "about": "The same JPEG already in memory, in the forms a program holds it.",
+     "unit": "s",
+     "baseline_row": "C",
+     "baseline_column": null,
+     "rows": {
+      "C": {
+       "400\u00d7400": {
+        "value": 0.000237291678786,
+        "median": 0.000609583337791,
+        "runs": 1413
+       },
+       "20 Mpx": {
+        "value": 0.0570742083946,
+        "median": 0.0573632916203,
+        "runs": 18
+       }
+      },
+      "C through cffi": {
+       "400\u00d7400": {
+        "value": 0.00023504102136939764,
+        "median": 0.0006044579204171896,
+        "runs": 1492
+       },
+       "20 Mpx": {
+        "value": 0.05697549995966256,
+        "median": 0.057275166967883706,
+        "runs": 18
+       }
+      },
+      "load_bytes(bytes)": {
+       "400\u00d7400": {
+        "value": 0.00023620796855539083,
+        "median": 0.0006134579889476299,
+        "runs": 1366
+       },
+       "20 Mpx": {
+        "value": 0.05610420892480761,
+        "median": 0.05864570802077651,
+        "runs": 18
+       }
+      },
+      "load_bytes(bytearray)": {
+       "400\u00d7400": {
+        "value": 0.00023266603238880634,
+        "median": 0.0006142080528661609,
+        "runs": 1154
+       },
+       "20 Mpx": {
+        "value": 0.055992625071667135,
+        "median": 0.05757158400956541,
+        "runs": 18
+       }
+      },
+      "load_bytes(memoryview)": {
+       "400\u00d7400": {
+        "value": 0.00023637502454221249,
+        "median": 0.0006211670115590096,
+        "runs": 1206
+       },
+       "20 Mpx": {
+        "value": 0.05589362501632422,
+        "median": 0.0563146669883281,
+        "runs": 18
+       }
+      },
+      "load(bytes)": {
+       "400\u00d7400": {
+        "value": 0.00023562507703900337,
+        "median": 0.0006182079669088125,
+        "runs": 1040
+       },
+       "20 Mpx": {
+        "value": 0.05604125000536442,
+        "median": 0.05630337505135685,
+        "runs": 18
+       }
+      },
+      "load_fileobj(BytesIO)": {
+       "400\u00d7400": {
+        "value": 0.00023624999448657036,
+        "median": 0.0006127910455688834,
+        "runs": 1437
+       },
+       "20 Mpx": {
+        "value": 0.055983041995204985,
+        "median": 0.05631866701878607,
+        "runs": 18
+       }
+      },
+      "load_fileobj(open file), open included": {
+       "400\u00d7400": {
+        "value": 0.00025295803789049387,
+        "median": 0.0006589590338990092,
+        "runs": 1412
+       },
+       "20 Mpx": {
+        "value": 0.0565636670216918,
+        "median": 0.0570844579488039,
+        "runs": 18
+       }
+      },
+      "hash_buffers([bytes]), per item": {
+       "400\u00d7400": {
+        "value": 0.000306583009660244,
+        "median": 0.00037512509152293205,
+        "runs": 2074
+       },
+       "20 Mpx": {
+        "value": 0.06045262492261827,
+        "median": 0.06176283396780491,
+        "runs": 16
+       }
+      }
+     },
+     "columns": [
+      "400\u00d7400",
+      "20 Mpx"
+     ]
+    },
+    {
+     "key": "load_pixels",
+     "title": "Loading decoded pixels",
+     "about": "The same image decoded (by Pillow, untimed) into 8-bit RGB pixels, in the forms numpy, OpenCV and Pillow hand them over.",
+     "unit": "s",
+     "baseline_row": "C",
+     "baseline_column": null,
+     "rows": {
+      "C": {
+       "400\u00d7400": {
+        "value": 9.79169271886e-06,
+        "median": 1.02500198409e-05,
+        "runs": 44387
+       },
+       "20 Mpx": {
+        "value": 0.00117308343761,
+        "median": 0.00128220836632,
+        "runs": 754
+       }
+      },
+      "C through cffi": {
+       "400\u00d7400": {
+        "value": 1.0333023965358734e-05,
+        "median": 1.0624993592500687e-05,
+        "runs": 81026
+       },
+       "20 Mpx": {
+        "value": 0.0011454579653218389,
+        "median": 0.0012741249520331621,
+        "runs": 750
+       }
+      },
+      "numpy, contiguous (no copy)": {
+       "400\u00d7400": {
+        "value": 1.1666910722851753e-05,
+        "median": 1.225003506988287e-05,
+        "runs": 67080
+       },
+       "20 Mpx": {
+        "value": 0.0011373329907655716,
+        "median": 0.0012098749866709113,
+        "runs": 809
+       }
+      },
+      "numpy, a crop: rows apart (no copy)": {
+       "400\u00d7400": {
+        "value": 1.2347319473822912e-05,
+        "median": 1.288899996628364e-05,
+        "runs": 23870
+       },
+       "20 Mpx": {
+        "value": 0.0011623749742284417,
+        "median": 0.0012664999812841415,
+        "runs": 759
+       }
+      },
+      "memoryview with a shape (no copy)": {
+       "400\u00d7400": {
+        "value": 1.0916031897068024e-05,
+        "median": 1.1416967026889324e-05,
+        "runs": 80834
+       },
+       "20 Mpx": {
+        "value": 0.001141624990850687,
+        "median": 0.0011674159904941916,
+        "runs": 847
+       }
+      },
+      "numpy BGR, channel_order='bgr' (a copy)": {
+       "400\u00d7400": {
+        "value": 0.00022195803467184305,
+        "median": 0.00022737495601177216,
+        "runs": 4157
+       },
+       "20 Mpx": {
+        "value": 0.028167375014163554,
+        "median": 0.028585624997504056,
+        "runs": 35
+       }
+      },
+      "numpy BGR, bgr[..., ::-1] (a copy)": {
+       "400\u00d7400": {
+        "value": 0.0019258329411968589,
+        "median": 0.001996207982301712,
+        "runs": 484
+       },
+       "20 Mpx": {
+        "value": 0.2332666669972241,
+        "median": 0.23464095906820148,
+        "runs": 5
+       }
+      },
+      "numpy BGR, np.ascontiguousarray(bgr[..., ::-1])": {
+       "400\u00d7400": {
+        "value": 0.00044179195538163185,
+        "median": 0.0004466250538825989,
+        "runs": 2118
+       },
+       "20 Mpx": {
+        "value": 0.054881792049854994,
+        "median": 0.055244040908291936,
+        "runs": 18
+       }
+      },
+      "numpy, one channel (h, w)": {
+       "400\u00d7400": {
+        "value": 4.819497310866912e-06,
+        "median": 5.2638351917266846e-06,
+        "runs": 28674
+       },
+       "20 Mpx": {
+        "value": 0.0003298749215900898,
+        "median": 0.00037441705353558064,
+        "runs": 2570
+       }
+      },
+      "Pillow RGB image, load_pil()": {
+       "400\u00d7400": {
+        "value": 4.779198206961155e-05,
+        "median": 5.145790055394173e-05,
+        "runs": 18913
+       },
+       "20 Mpx": {
+        "value": 0.006793042062781751,
+        "median": 0.007194291916675866,
+        "runs": 139
+       }
+      },
+      "Pillow RGB image, np.asarray() then load_pixels()": {
+       "400\u00d7400": {
+        "value": 4.979199729859829e-05,
+        "median": 5.362497176975012e-05,
+        "runs": 18074
+       },
+       "20 Mpx": {
+        "value": 0.0066962920827791095,
+        "median": 0.0070951670641079545,
+        "runs": 140
+       }
+      }
+     },
+     "columns": [
+      "400\u00d7400",
+      "20 Mpx"
+     ]
+    },
+    {
+     "key": "hash_loaded_photo",
+     "title": "One hash of a loaded image, 400\u00d7400",
+     "about": "Each hash computed again on an image that a first hash prepared: the grayscale image and the area grid are cached in the context, so the 64-bit hashes cost little more than the call itself.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": "C",
+     "rows": {
+      "ahash": {
+       "C": {
+        "value": 3.74973751605e-07,
+        "median": 4.58327122033e-07,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 4.998873919248581e-07,
+        "median": 5.830079317092896e-07,
+        "runs": 100000
+       },
+       "hash(Algorithm)": {
+        "value": 7.909256964921951e-07,
+        "median": 8.749775588512421e-07,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 1.1249794624745846e-06,
+        "median": 1.1874944902956486e-06,
+        "runs": 100000
+       },
+       "its method, ahash() \u2026": {
+        "value": 7.583992555737496e-07,
+        "median": 8.16606916487217e-07,
+        "runs": 100000
+       }
+      },
+      "dhash": {
+       "C": {
+        "value": 4.60000010207e-05,
+        "median": 4.71250386909e-05,
+        "runs": 20932
+       },
+       "C through cffi": {
+        "value": 4.600000102072954e-05,
+        "median": 4.741700831800699e-05,
+        "runs": 20845
+       },
+       "hash(Algorithm)": {
+        "value": 4.654191434383392e-05,
+        "median": 4.7749956138432026e-05,
+        "runs": 20652
+       },
+       "hash('name')": {
+        "value": 4.700000863522291e-05,
+        "median": 4.7625042498111725e-05,
+        "runs": 20639
+       },
+       "its method, ahash() \u2026": {
+        "value": 4.654197255149484e-05,
+        "median": 4.70829545520246e-05,
+        "runs": 10485
+       }
+      },
+      "phash": {
+       "C": {
+        "value": 3.45823355019e-06,
+        "median": 3.62505670637e-06,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 3.5971752367913723e-06,
+        "median": 3.6318281975885234e-06,
+        "runs": 44485
+       },
+       "hash(Algorithm)": {
+        "value": 3.832974471151829e-06,
+        "median": 4.00003045797348e-06,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 4.197994712740183e-06,
+        "median": 4.260509740561247e-06,
+        "runs": 57211
+       },
+       "its method, ahash() \u2026": {
+        "value": 3.885477781295776e-06,
+        "median": 4.073022864758968e-06,
+        "runs": 59041
+       }
+      },
+      "whash": {
+       "C": {
+        "value": 7.91624188423e-07,
+        "median": 8.74977558851e-07,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 8.359347702935338e-07,
+        "median": 8.5419014794752e-07,
+        "runs": 71084
+       },
+       "hash(Algorithm)": {
+        "value": 1.104160522421201e-06,
+        "median": 1.1458372076352437e-06,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 1.4513304146627586e-06,
+        "median": 1.5208303617934387e-06,
+        "runs": 100000
+       },
+       "its method, ahash() \u2026": {
+        "value": 1.1110872340699036e-06,
+        "median": 1.142412656918168e-06,
+        "runs": 71585
+       }
+      },
+      "bmh": {
+       "C": {
+        "value": 7.91624188423e-07,
+        "median": 9.16654244065e-07,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 8.958353040119013e-07,
+        "median": 9.513266074160734e-07,
+        "runs": 100000
+       },
+       "hash(Algorithm)": {
+        "value": 1.6874982975423336e-06,
+        "median": 1.7919810488820076e-06,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 2.0415987819433213e-06,
+        "median": 2.1584099158644675e-06,
+        "runs": 90414
+       },
+       "its method, ahash() \u2026": {
+        "value": 1.6760055182708634e-06,
+        "median": 1.7453243749009239e-06,
+        "runs": 62602
+       }
+      },
+      "mhash": {
+       "C": {
+        "value": 0.000956166652031,
+        "median": 0.000983083387837,
+        "runs": 1013
+       },
+       "C through cffi": {
+        "value": 0.0009131249971687794,
+        "median": 0.0009607080137357116,
+        "runs": 982
+       },
+       "hash(Algorithm)": {
+        "value": 0.000914541888050735,
+        "median": 0.0009360829135403037,
+        "runs": 950
+       },
+       "hash('name')": {
+        "value": 0.000914375064894557,
+        "median": 0.0009270840091630816,
+        "runs": 1074
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.0009157500462606549,
+        "median": 0.0009417500114068389,
+        "runs": 1061
+       }
+      },
+      "radial": {
+       "C": {
+        "value": 0.000608458416536,
+        "median": 0.000620458391495,
+        "runs": 1481
+       },
+       "C through cffi": {
+        "value": 0.000583832967095077,
+        "median": 0.0005894999485462904,
+        "runs": 1686
+       },
+       "hash(Algorithm)": {
+        "value": 0.0005864999257028103,
+        "median": 0.0005914160283282399,
+        "runs": 1675
+       },
+       "hash('name')": {
+        "value": 0.0005855830386281013,
+        "median": 0.0005912919295951724,
+        "runs": 1672
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.0005865000421181321,
+        "median": 0.0005909579340368509,
+        "runs": 1653
+       }
+      },
+      "color_hash": {
+       "C": {
+        "value": 0.000130583415739,
+        "median": 0.000135749927722,
+        "runs": 7231
+       },
+       "C through cffi": {
+        "value": 0.0001287920167669654,
+        "median": 0.0001323750475421548,
+        "runs": 7173
+       },
+       "hash(Algorithm)": {
+        "value": 0.0001324999611824751,
+        "median": 0.00013666704762727022,
+        "runs": 7230
+       },
+       "hash('name')": {
+        "value": 0.00013029202818870544,
+        "median": 0.0001319169532507658,
+        "runs": 7478
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.00012987502850592136,
+        "median": 0.0001312500098720193,
+        "runs": 7525
+       }
+      },
+      "color_moments": {
+       "C": {
+        "value": 0.000247083371505,
+        "median": 0.000249083270319,
+        "runs": 3967
+       },
+       "C through cffi": {
+        "value": 0.0002264169743284583,
+        "median": 0.00024358299560844898,
+        "runs": 4010
+       },
+       "hash(Algorithm)": {
+        "value": 0.00022770906798541546,
+        "median": 0.00024500000290572643,
+        "runs": 4019
+       },
+       "hash('name')": {
+        "value": 0.00024466693866997957,
+        "median": 0.0002501249546185136,
+        "runs": 3967
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.00024408299941569567,
+        "median": 0.0002489999169483781,
+        "runs": 4002
+       }
+      }
+     },
+     "columns": [
+      "C",
+      "C through cffi",
+      "hash(Algorithm)",
+      "hash('name')",
+      "its method, ahash() \u2026"
+     ]
+    },
+    {
+     "key": "load_hash_photo",
+     "title": "Loading and one hash, 400\u00d7400",
+     "about": "A load of the encoded bytes and the first hash on it, which prepares the grayscale image and the area grid: what one image and one hash cost.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": "C",
+     "rows": {
+      "ahash": {
+       "C": {
+        "value": 0.000276375096291,
+        "median": 0.000283208210021,
+        "runs": 3497
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0002726250095292926,
+        "median": 0.0002792499726638198,
+        "runs": 3546
+       }
+      },
+      "dhash": {
+       "C": {
+        "value": 0.000282916706055,
+        "median": 0.000286958413199,
+        "runs": 3448
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0002802920062094927,
+        "median": 0.00028670800384134054,
+        "runs": 3425
+       }
+      },
+      "phash": {
+       "C": {
+        "value": 0.000278874998912,
+        "median": 0.000283833360299,
+        "runs": 3479
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0002749169943854213,
+        "median": 0.000280875014141202,
+        "runs": 3512
+       }
+      },
+      "whash": {
+       "C": {
+        "value": 0.00027616659645,
+        "median": 0.000282583292574,
+        "runs": 3468
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0002737919567152858,
+        "median": 0.00027729093562811613,
+        "runs": 3564
+       }
+      },
+      "bmh": {
+       "C": {
+        "value": 0.000276666600257,
+        "median": 0.000287625007331,
+        "runs": 3451
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0002557499101385474,
+        "median": 0.00027600000612437725,
+        "runs": 3543
+       }
+      },
+      "mhash": {
+       "C": {
+        "value": 0.0011947916355,
+        "median": 0.00123658345547,
+        "runs": 805
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0011500839609652758,
+        "median": 0.0011780839413404465,
+        "runs": 846
+       }
+      },
+      "radial": {
+       "C": {
+        "value": 0.000822083442472,
+        "median": 0.000856083352119,
+        "runs": 1153
+       },
+       "load_bytes() + hash()": {
+        "value": 0.0008219170849770308,
+        "median": 0.000833250000141561,
+        "runs": 1127
+       }
+      },
+      "color_hash": {
+       "C": {
+        "value": 0.000351458438672,
+        "median": 0.000365416635759,
+        "runs": 2684
+       },
+       "load_bytes() + hash()": {
+        "value": 0.00035324995405972004,
+        "median": 0.0003607079852372408,
+        "runs": 2749
+       }
+      },
+      "color_moments": {
+       "C": {
+        "value": 0.000466458383016,
+        "median": 0.000478375004604,
+        "runs": 2047
+       },
+       "load_bytes() + hash()": {
+        "value": 0.00046745804138481617,
+        "median": 0.00047683296725153923,
+        "runs": 2069
+       }
+      }
+     },
+     "columns": [
+      "C",
+      "load_bytes() + hash()"
+     ]
+    },
+    {
+     "key": "hash_loaded_photo_large",
+     "title": "One hash of a loaded image, 20 Mpx",
+     "about": "Each hash computed again on an image that a first hash prepared: the grayscale image and the area grid are cached in the context, so the 64-bit hashes cost little more than the call itself.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": "C",
+     "rows": {
+      "ahash": {
+       "C": {
+        "value": 3.33413481712e-07,
+        "median": 4.58210706711e-07,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 4.998873919248581e-07,
+        "median": 5.830079317092896e-07,
+        "runs": 100000
+       },
+       "hash(Algorithm)": {
+        "value": 7.499475032091141e-07,
+        "median": 8.749775588512421e-07,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 1.1249988650282223e-06,
+        "median": 1.1806453888614972e-06,
+        "runs": 100000
+       },
+       "its method, ahash() \u2026": {
+        "value": 7.720595663961242e-07,
+        "median": 8.161741254084251e-07,
+        "runs": 70206
+       }
+      },
+      "dhash": {
+       "C": {
+        "value": 0.00490975007415,
+        "median": 0.00496399996337,
+        "runs": 201
+       },
+       "C through cffi": {
+        "value": 0.004917790996842086,
+        "median": 0.004963750019669533,
+        "runs": 200
+       },
+       "hash(Algorithm)": {
+        "value": 0.0049125830410048366,
+        "median": 0.004962624981999397,
+        "runs": 201
+       },
+       "hash('name')": {
+        "value": 0.004911458003334701,
+        "median": 0.004961875034496188,
+        "runs": 202
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.0048951670760288835,
+        "median": 0.004960332997143269,
+        "runs": 202
+       }
+      },
+      "phash": {
+       "C": {
+        "value": 3.41655686498e-06,
+        "median": 3.54170333594e-06,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 3.591598942875862e-06,
+        "median": 3.633415326476097e-06,
+        "runs": 53835
+       },
+       "hash(Algorithm)": {
+        "value": 3.915978595614433e-06,
+        "median": 4.042056389153004e-06,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 4.180668232341607e-06,
+        "median": 4.291650839149952e-06,
+        "runs": 75806
+       },
+       "its method, ahash() \u2026": {
+        "value": 3.6368645461542267e-06,
+        "median": 3.904719570917743e-06,
+        "runs": 35747
+       }
+      },
+      "whash": {
+       "C": {
+        "value": 8.74977558851e-07,
+        "median": 9.58330929279e-07,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 9.423014349662341e-07,
+        "median": 9.936226818424004e-07,
+        "runs": 75889
+       },
+       "hash(Algorithm)": {
+        "value": 1.2083910405635834e-06,
+        "median": 1.2499978765845298e-06,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 1.5666009858250618e-06,
+        "median": 1.6165897250175476e-06,
+        "runs": 100000
+       },
+       "its method, ahash() \u2026": {
+        "value": 1.2187229003757238e-06,
+        "median": 1.2709933798760176e-06,
+        "runs": 100000
+       }
+      },
+      "bmh": {
+       "C": {
+        "value": 7.08270817995e-07,
+        "median": 7.91740603745e-07,
+        "runs": 100000
+       },
+       "C through cffi": {
+        "value": 8.240005829268032e-07,
+        "median": 8.564416526092423e-07,
+        "runs": 100000
+       },
+       "hash(Algorithm)": {
+        "value": 1.6249832697212696e-06,
+        "median": 1.7294660210609436e-06,
+        "runs": 100000
+       },
+       "hash('name')": {
+        "value": 2.008187584578991e-06,
+        "median": 2.124998718500137e-06,
+        "runs": 90838
+       },
+       "its method, ahash() \u2026": {
+        "value": 1.6165897250175476e-06,
+        "median": 1.700012944638729e-06,
+        "runs": 100000
+       }
+      },
+      "mhash": {
+       "C": {
+        "value": 0.035129625001,
+        "median": 0.0355227084365,
+        "runs": 28
+       },
+       "C through cffi": {
+        "value": 0.03198037506081164,
+        "median": 0.03218504204414785,
+        "runs": 31
+       },
+       "hash(Algorithm)": {
+        "value": 0.03201725007966161,
+        "median": 0.03215887490659952,
+        "runs": 31
+       },
+       "hash('name')": {
+        "value": 0.03235562506597489,
+        "median": 0.03314266703091562,
+        "runs": 30
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.03204995801206678,
+        "median": 0.03227337496355176,
+        "runs": 31
+       }
+      },
+      "radial": {
+       "C": {
+        "value": 0.0467931249877,
+        "median": 0.0470927916467,
+        "runs": 21
+       },
+       "C through cffi": {
+        "value": 0.04668979102279991,
+        "median": 0.04693312500603497,
+        "runs": 22
+       },
+       "hash(Algorithm)": {
+        "value": 0.046759875025600195,
+        "median": 0.04699004197027534,
+        "runs": 22
+       },
+       "hash('name')": {
+        "value": 0.046780208009295166,
+        "median": 0.04734504106454551,
+        "runs": 21
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.0474880839465186,
+        "median": 0.049840333056636155,
+        "runs": 20
+       }
+      },
+      "color_hash": {
+       "C": {
+        "value": 0.0166354167741,
+        "median": 0.0170303334016,
+        "runs": 59
+       },
+       "C through cffi": {
+        "value": 0.016572666936554015,
+        "median": 0.016657582949846983,
+        "runs": 60
+       },
+       "hash(Algorithm)": {
+        "value": 0.016592207946814597,
+        "median": 0.016698417020961642,
+        "runs": 60
+       },
+       "hash('name')": {
+        "value": 0.016568458057008684,
+        "median": 0.016681583016179502,
+        "runs": 60
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.01655908301472664,
+        "median": 0.01667845796328038,
+        "runs": 60
+       }
+      },
+      "color_moments": {
+       "C": {
+        "value": 0.0307372499956,
+        "median": 0.0308514999924,
+        "runs": 33
+       },
+       "C through cffi": {
+        "value": 0.03119554091244936,
+        "median": 0.03137616696767509,
+        "runs": 32
+       },
+       "hash(Algorithm)": {
+        "value": 0.03062049997970462,
+        "median": 0.030705666984431446,
+        "runs": 33
+       },
+       "hash('name')": {
+        "value": 0.03057687496766448,
+        "median": 0.031165042077191174,
+        "runs": 32
+       },
+       "its method, ahash() \u2026": {
+        "value": 0.030594584066420794,
+        "median": 0.03066516702529043,
+        "runs": 33
+       }
+      }
+     },
+     "columns": [
+      "C",
+      "C through cffi",
+      "hash(Algorithm)",
+      "hash('name')",
+      "its method, ahash() \u2026"
+     ]
+    },
+    {
+     "key": "load_hash_photo_large",
+     "title": "Loading and one hash, 20 Mpx",
+     "about": "A load of the encoded bytes and the first hash on it, which prepares the grayscale image and the area grid: what one image and one hash cost.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": "C",
+     "rows": {
+      "ahash": {
+       "C": {
+        "value": 0.0584826666163,
+        "median": 0.0588354583597,
+        "runs": 17
+       },
+       "load_bytes() + hash()": {
+        "value": 0.059096916927956045,
+        "median": 0.06009183300193399,
+        "runs": 17
+       }
+      },
+      "dhash": {
+       "C": {
+        "value": 0.0621359583456,
+        "median": 0.0622851666994,
+        "runs": 17
+       },
+       "load_bytes() + hash()": {
+        "value": 0.062265624990686774,
+        "median": 0.06295141705777496,
+        "runs": 16
+       }
+      },
+      "phash": {
+       "C": {
+        "value": 0.0584965000162,
+        "median": 0.0587536667008,
+        "runs": 17
+       },
+       "load_bytes() + hash()": {
+        "value": 0.058478042017668486,
+        "median": 0.05873275001067668,
+        "runs": 17
+       }
+      },
+      "whash": {
+       "C": {
+        "value": 0.058563458384,
+        "median": 0.0588360833935,
+        "runs": 17
+       },
+       "load_bytes() + hash()": {
+        "value": 0.05863429210148752,
+        "median": 0.06008916697464883,
+        "runs": 17
+       }
+      },
+      "bmh": {
+       "C": {
+        "value": 0.0586981666274,
+        "median": 0.0600414582295,
+        "runs": 17
+       },
+       "load_bytes() + hash()": {
+        "value": 0.05860504088923335,
+        "median": 0.05875750002451241,
+        "runs": 17
+       }
+      },
+      "mhash": {
+       "C": {
+        "value": 0.092443708214,
+        "median": 0.0948431665311,
+        "runs": 11
+       },
+       "load_bytes() + hash()": {
+        "value": 0.08927799994125962,
+        "median": 0.08968441595789045,
+        "runs": 12
+       }
+      },
+      "radial": {
+       "C": {
+        "value": 0.103932916536,
+        "median": 0.104590791743,
+        "runs": 10
+       },
+       "load_bytes() + hash()": {
+        "value": 0.10436612495686859,
+        "median": 0.10572970798239112,
+        "runs": 10
+       }
+      },
+      "color_hash": {
+       "C": {
+        "value": 0.0724658749532,
+        "median": 0.0728127917973,
+        "runs": 14
+       },
+       "load_bytes() + hash()": {
+        "value": 0.07260658300947398,
+        "median": 0.07278633303940296,
+        "runs": 14
+       }
+      },
+      "color_moments": {
+       "C": {
+        "value": 0.0867438750574,
+        "median": 0.086956000072,
+        "runs": 12
+       },
+       "load_bytes() + hash()": {
+        "value": 0.08656458300538361,
+        "median": 0.0867372079519555,
+        "runs": 12
+       }
+      }
+     },
+     "columns": [
+      "C",
+      "load_bytes() + hash()"
+     ]
+    },
+    {
+     "key": "multi",
+     "title": "Several hashes of one load",
+     "about": "A load of the encoded bytes and the four 64-bit hashes (or all nine). hashes() computes the 64-bit ones in one ph_compute_multi() call, which shares their work on the full image.",
+     "unit": "s",
+     "baseline_row": "C: ph_compute_multi()",
+     "baseline_column": null,
+     "rows": {
+      "C: ph_compute_multi()": {
+       "400\u00d7400": {
+        "value": 0.000321583240293,
+        "median": 0.00032766663935,
+        "runs": 3034
+       },
+       "20 Mpx": {
+        "value": 0.0634062500903,
+        "median": 0.0637827082537,
+        "runs": 16
+       }
+      },
+      "C: four ph_compute_*()": {
+       "400\u00d7400": {
+        "value": 0.000300083425827,
+        "median": 0.000331458286382,
+        "runs": 2977
+       },
+       "20 Mpx": {
+        "value": 0.0642377083423,
+        "median": 0.065317499917,
+        "runs": 16
+       }
+      },
+      "hashes(4 \u00d7 64-bit)": {
+       "400\u00d7400": {
+        "value": 0.0003261669771745801,
+        "median": 0.00033875007648020983,
+        "runs": 2890
+       },
+       "20 Mpx": {
+        "value": 0.06358654203359038,
+        "median": 0.06440541706979275,
+        "runs": 16
+       }
+      },
+      "hash() four times": {
+       "400\u00d7400": {
+        "value": 0.00032366695813834667,
+        "median": 0.0003279999364167452,
+        "runs": 3019
+       },
+       "20 Mpx": {
+        "value": 0.06358416692819446,
+        "median": 0.06388924992643297,
+        "runs": 16
+       }
+      },
+      "hashes(all 9)": {
+       "400\u00d7400": {
+        "value": 0.002210542093962431,
+        "median": 0.0022397079737856984,
+        "runs": 446
+       },
+       "20 Mpx": {
+        "value": 0.18992999999318272,
+        "median": 0.19250962499063462,
+        "runs": 6
+       }
+      },
+      "hash() nine times": {
+       "400\u00d7400": {
+        "value": 0.002205875003710389,
+        "median": 0.0022363750031217933,
+        "runs": 446
+       },
+       "20 Mpx": {
+        "value": 0.19010262505616993,
+        "median": 0.19089941692072898,
+        "runs": 6
+       }
+      },
+      "hash(path) four times, a load each": {
+       "400\u00d7400": {
+        "value": 0.0011153749655932188,
+        "median": 0.0011897500371560454,
+        "runs": 837
+       },
+       "20 Mpx": {
+        "value": 0.23956108302809298,
+        "median": 0.24019154103007168,
+        "runs": 5
+       }
+      }
+     },
+     "columns": [
+      "400\u00d7400",
+      "20 Mpx"
+     ]
+    },
+    {
+     "key": "file_to_hash",
+     "title": "From a file to its pHash",
+     "about": "Per image: a new context for each, one context kept, or a batch on one thread (threads=1, the calling thread) of 64 copies of the file.",
+     "unit": "s",
+     "baseline_row": "C: a new context",
+     "baseline_column": null,
+     "rows": {
+      "C: a new context": {
+       "400\u00d7400": {
+        "value": 0.000288791721687,
+        "median": 0.000297916703857,
+        "runs": 3332
+       },
+       "20 Mpx": {
+        "value": 0.0588002499426,
+        "median": 0.059184541693,
+        "runs": 17
+       }
+      },
+      "C: one context": {
+       "400\u00d7400": {
+        "value": 0.000283291679807,
+        "median": 0.000288708368316,
+        "runs": 3413
+       },
+       "20 Mpx": {
+        "value": 0.0594971249811,
+        "median": 0.0606504165335,
+        "runs": 17
+       }
+      },
+      "C: ph_hash_files(), 1 thread": {
+       "400\u00d7400": {
+        "value": 0.000287135417238,
+        "median": 0.000290380208753,
+        "runs": 54
+       },
+       "20 Mpx": {
+        "value": 0.0593141243498,
+        "median": 0.0599459127625,
+        "runs": 5
+       }
+      },
+      "hash(path): a new context": {
+       "400\u00d7400": {
+        "value": 0.0002858750522136688,
+        "median": 0.000311249983496964,
+        "runs": 3133
+       },
+       "20 Mpx": {
+        "value": 0.05878291709814221,
+        "median": 0.059537166031077504,
+        "runs": 17
+       }
+      },
+      "ImageContext, kept": {
+       "400\u00d7400": {
+        "value": 0.00026816700119525194,
+        "median": 0.0002919579856097698,
+        "runs": 3399
+       },
+       "20 Mpx": {
+        "value": 0.058837875025346875,
+        "median": 0.0590995829552412,
+        "runs": 17
+       }
+      },
+      "hash_files(threads=1)": {
+       "400\u00d7400": {
+        "value": 0.00029000585891481023,
+        "median": 0.0002916927023761673,
+        "runs": 53
+       },
+       "20 Mpx": {
+        "value": 0.05947764974916936,
+        "median": 0.05987020703287271,
+        "runs": 5
+       }
+      }
+     },
+     "columns": [
+      "400\u00d7400",
+      "20 Mpx"
+     ]
+    },
+    {
+     "key": "compare",
+     "title": "Comparing two hashes",
+     "about": "One comparison of two hashes of two similar photographs (photo.jpeg and photo_copy.jpeg), and the conversions of a hash.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "64-bit Hamming: C ph_hamming_distance()": {
+       "per call": {
+        "value": 7.93133469973e-10,
+        "median": 8.10498551732e-10,
+        "runs": 20016
+       }
+      },
+      "64-bit Hamming: cffi": {
+       "per call": {
+        "value": 6.930592159430186e-08,
+        "median": 9.736201415459315e-08,
+        "runs": 100000
+       }
+      },
+      "64-bit Hamming: hamming_distance()": {
+       "per call": {
+        "value": 2.2898893803358078e-07,
+        "median": 2.500019036233425e-07,
+        "runs": 100000
+       }
+      },
+      "64-bit Hamming: (a ^ b).bit_count()": {
+       "per call": {
+        "value": 3.260641318300496e-08,
+        "median": 3.6220349695371544e-08,
+        "runs": 100000
+       }
+      },
+      "64-bit similarity()": {
+       "per call": {
+        "value": 2.0823790691792965e-07,
+        "median": 2.3949542082846165e-07,
+        "runs": 100000
+       }
+      },
+      "bmh Hamming: C": {
+       "per call": {
+        "value": 3.43908770726e-09,
+        "median": 3.44871435888e-09,
+        "runs": 21735
+       }
+      },
+      "bmh Hamming: Digest": {
+       "per call": {
+        "value": 8.124625310301781e-07,
+        "median": 8.955248631536961e-07,
+        "runs": 100000
+       }
+      },
+      "color_moments L2: C": {
+       "per call": {
+        "value": 5.81769563723e-09,
+        "median": 5.82812936045e-09,
+        "runs": 21203
+       }
+      },
+      "color_moments L2: Digest": {
+       "per call": {
+        "value": 8.081784471869468e-07,
+        "median": 8.750008419156074e-07,
+        "runs": 100000
+       }
+      },
+      "radial radial: C": {
+       "per call": {
+        "value": 8.62915767357e-08,
+        "median": 8.64166067913e-08,
+        "runs": 11422
+       }
+      },
+      "radial radial: Digest": {
+       "per call": {
+        "value": 9.795185178518295e-07,
+        "median": 1.0834774002432823e-06,
+        "runs": 100000
+       }
+      },
+      "color_hash histogram: C": {
+       "per call": {
+        "value": 5.28333475813e-08,
+        "median": 5.32499980181e-08,
+        "runs": 18433
+       }
+      },
+      "color_hash histogram: Digest": {
+       "per call": {
+        "value": 9.477662388235331e-07,
+        "median": 1.0207586456090212e-06,
+        "runs": 100000
+       }
+      },
+      "bmh similarity: C": {
+       "per call": {
+        "value": 3.69872074001e-09,
+        "median": 3.97756230086e-09,
+        "runs": 19021
+       }
+      },
+      "bmh similarity: Digest": {
+       "per call": {
+        "value": 8.250121027231217e-07,
+        "median": 8.833827450871467e-07,
+        "runs": 100000
+       }
+      },
+      "Digest(bytes, kind), 72 bytes": {
+       "per call": {
+        "value": 3.334716893732548e-07,
+        "median": 3.9552105590701103e-07,
+        "runs": 100000
+       }
+      },
+      "Digest.hex(), 72 bytes": {
+       "per call": {
+        "value": 6.144982762634754e-07,
+        "median": 6.562622729688883e-07,
+        "runs": 100000
+       }
+      },
+      "Digest.from_hex(), 72 bytes": {
+       "per call": {
+        "value": 8.333008736371994e-07,
+        "median": 9.026456003387769e-07,
+        "runs": 100000
+       }
+      },
+      "hash_to_hex(int)": {
+       "per call": {
+        "value": 3.193272277712822e-07,
+        "median": 3.6131435384353e-07,
+        "runs": 100000
+       }
+      },
+      "f'{h:016x}'": {
+       "per call": {
+        "value": 8.328684738704137e-08,
+        "median": 1.0114828390734537e-07,
+        "runs": 100000
+       }
+      }
+     },
+     "columns": [
+      "per call"
+     ]
+    }
+   ],
+   "notes": []
+  },
+  {
+   "key": "search",
+   "title": "2. Searching: one against many, every pair",
+   "tables": [
+    {
+     "key": "nearest_uint64",
+     "title": "1 to N: the nearest of N 64-bit hashes",
+     "about": "The index of the hash nearest to a query, per hash compared.",
+     "unit": "s",
+     "baseline_row": "C loop, ph_hamming_distance()",
+     "baseline_column": null,
+     "rows": {
+      "C loop, ph_hamming_distance()": {
+       "N = 10,000": {
+        "value": 7.93054156626e-10,
+        "median": 7.94445319722e-10,
+        "runs": 20616
+       },
+       "N = 100,000": {
+        "value": 7.92915234342e-10,
+        "median": 7.94166699052e-10,
+        "runs": 12377
+       },
+       "N = 1,000,000": {
+        "value": 7.93583225459e-10,
+        "median": 8.10833298601e-10,
+        "runs": 1217
+       }
+      },
+      "Python loop, hamming_distance()": {
+       "N = 10,000": {
+        "value": 2.417583018541336e-07,
+        "median": 2.450582920573652e-07,
+        "runs": 408
+       },
+       "N = 100,000": {
+        "value": 2.442862500902265e-07,
+        "median": 2.487049996852875e-07,
+        "runs": 40
+       },
+       "N = 1,000,000": {
+        "value": 2.490656669251621e-07,
+        "median": 2.506492080865428e-07,
+        "runs": 5
+       }
+      },
+      "Python loop, (q ^ h).bit_count()": {
+       "N = 10,000": {
+        "value": 4.887499380856753e-08,
+        "median": 5.043329438194633e-08,
+        "runs": 1976
+       },
+       "N = 100,000": {
+        "value": 4.897792008705437e-08,
+        "median": 5.026082973927259e-08,
+        "runs": 199
+       },
+       "N = 1,000,000": {
+        "value": 4.9845875008031724e-08,
+        "median": 5.054820899385959e-08,
+        "runs": 20
+       }
+      },
+      "numpy, bitwise_count(arr ^ q).argmin()": {
+       "N = 10,000": {
+        "value": 4.707952030003071e-10,
+        "median": 5.249981768429279e-10,
+        "runs": 100000
+       },
+       "N = 100,000": {
+        "value": 3.1082890927791595e-10,
+        "median": 3.350002225488424e-10,
+        "runs": 29350
+       },
+       "N = 1,000,000": {
+        "value": 3.208749694749713e-10,
+        "median": 3.339169779792428e-10,
+        "runs": 2962
+       }
+      },
+      "numpy, building the uint64 array from a list of int": {
+       "N = 10,000": {
+        "value": 1.6675004735589028e-08,
+        "median": 1.6895798034965993e-08,
+        "runs": 5776
+       },
+       "N = 100,000": {
+        "value": 1.6996669583022595e-08,
+        "median": 1.7277499428018927e-08,
+        "runs": 571
+       },
+       "N = 1,000,000": {
+        "value": 1.7254667007364334e-08,
+        "median": 1.737104100175202e-08,
+        "runs": 58
+       }
+      }
+     },
+     "columns": [
+      "N = 10,000",
+      "N = 100,000",
+      "N = 1,000,000"
+     ]
+    },
+    {
+     "key": "nearest_digest",
+     "title": "1 to N: the nearest of N mHash digests (72 bytes)",
+     "about": "Digests of the BITS kind compared by Hamming distance, per digest compared.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "Python loop, Digest.hamming_distance()": {
+       "N = 10,000": {
+        "value": 8.595416089519859e-07,
+        "median": 8.772667031735182e-07,
+        "runs": 114
+       },
+       "N = 100,000": {
+        "value": 8.927604195196181e-07,
+        "median": 9.020666696596891e-07,
+        "runs": 11
+       }
+      },
+      "numpy over bytes, bitwise_count(m ^ q).sum(1).argmin()": {
+       "N = 10,000": {
+        "value": 2.126670442521572e-08,
+        "median": 2.15624924749136e-08,
+        "runs": 4589
+       },
+       "N = 100,000": {
+        "value": 2.116457908414304e-08,
+        "median": 2.1534160478040578e-08,
+        "runs": 460
+       }
+      },
+      "numpy over uint64 words, the same": {
+       "N = 10,000": {
+        "value": 1.0379194281995296e-08,
+        "median": 1.0533409658819438e-08,
+        "runs": 9381
+       },
+       "N = 100,000": {
+        "value": 1.0169160086661577e-08,
+        "median": 1.0345419868826866e-08,
+        "runs": 955
+       }
+      },
+      "numpy, building the matrix from Digest.data": {
+       "N = 10,000": {
+        "value": 3.127079689875245e-08,
+        "median": 3.227080451324582e-08,
+        "runs": 3079
+       },
+       "N = 100,000": {
+        "value": 3.135500010102987e-08,
+        "median": 3.211708040907979e-08,
+        "runs": 308
+       }
+      }
+     },
+     "columns": [
+      "N = 10,000",
+      "N = 100,000"
+     ]
+    },
+    {
+     "key": "all_pairs",
+     "title": "N to N: every pair of N 64-bit hashes",
+     "about": "The sum of the distances of all N(N-1)/2 pairs, per pair; numpy works on blocks of 256 rows against all N.",
+     "unit": "s",
+     "baseline_row": "C loop, ph_hamming_distance()",
+     "baseline_column": null,
+     "rows": {
+      "C loop, ph_hamming_distance()": {
+       "N = 1,000": {
+        "value": 8.03052933441e-10,
+        "median": 8.10059993803e-10,
+        "runs": 2424
+       },
+       "N = 10,000": {
+        "value": 8.03253658772e-10,
+        "median": 8.06136446299e-10,
+        "runs": 25
+       }
+      },
+      "Python loop, (a ^ b).bit_count()": {
+       "N = 1,000": {
+        "value": 4.029554548907328e-08,
+        "median": 4.160802394666292e-08,
+        "runs": 49
+       }
+      },
+      "numpy, bitwise_count in blocks": {
+       "N = 1,000": {
+        "value": 1.364030052084584e-09,
+        "median": 1.423589715564454e-09,
+        "runs": 1401
+       },
+       "N = 10,000": {
+        "value": 7.90944934883813e-10,
+        "median": 8.039387336598955e-10,
+        "runs": 25
+       }
+      }
+     },
+     "columns": [
+      "N = 1,000",
+      "N = 10,000"
+     ]
+    }
+   ],
+   "notes": []
+  },
+  {
+   "key": "memory",
+   "title": "3. Memory",
+   "tables": [
+    {
+     "key": "load_memory",
+     "title": "Memory of one load",
+     "about": "A load into a new context, from each form of the image.",
+     "unit": "B",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "load_file()": {
+       "400\u00d7400: Python": {
+        "value": 537.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1064960.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 543.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 66650112.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "load_bytes(bytes)": {
+       "400\u00d7400: Python": {
+        "value": 10419.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1032192.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 10419.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 60571648.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "load_bytes(memoryview)": {
+       "400\u00d7400: Python": {
+        "value": 10731.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1064960.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 10731.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 60571648.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "load_fileobj(open file)": {
+       "400\u00d7400: Python": {
+        "value": 40592.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1064960.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 6031812.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 66600960.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "load_fileobj(BytesIO)": {
+       "400\u00d7400: Python": {
+        "value": 10499.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1048576.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 10499.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 60604416.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "numpy, contiguous": {
+       "400\u00d7400: Python": {
+        "value": 10778.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 540672.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 10778.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 59949056.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "numpy, a crop: rows apart": {
+       "400\u00d7400: Python": {
+        "value": 10842.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 524288.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 10842.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 59965440.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "numpy BGR, channel_order='bgr'": {
+       "400\u00d7400: Python": {
+        "value": 1441379.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 2015232.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 179658083.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 239763456.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "numpy BGR, bgr[..., ::-1]": {
+       "400\u00d7400: Python": {
+        "value": 481988.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1015808.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 59887556.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 119881728.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "numpy BGR, np.ascontiguousarray(bgr[..., ::-1])": {
+       "400\u00d7400: Python": {
+        "value": 490970.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1015808.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 59896538.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 119865344.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "Pillow RGB image, load_pil()": {
+       "400\u00d7400: Python": {
+        "value": 961461.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1179648.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 119919629.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 200097792.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "Pillow RGB image, np.asarray()": {
+       "400\u00d7400: Python": {
+        "value": 961461.0,
+        "median": null,
+        "runs": null
+       },
+       "400\u00d7400: resident": {
+        "value": 1228800.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: Python": {
+        "value": 119919629.0,
+        "median": null,
+        "runs": null
+       },
+       "20 Mpx: resident": {
+        "value": 200032256.0,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "400\u00d7400: Python",
+      "400\u00d7400: resident",
+      "20 Mpx: Python",
+      "20 Mpx: resident"
+     ]
+    },
+    {
+     "key": "contexts",
+     "title": "Contexts",
+     "about": "What stays allocated: an empty context (per context, of 1,000), one holding the 20 Mpx image after its nine hashes, the same closed. Resident memory counts pages the allocator keeps for reuse after a free: macOS's allocator keeps the pages of a closed context resident until the system needs them.",
+     "unit": "B",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "an empty context": {
+       "Python": {
+        "value": 601.208,
+        "median": null,
+        "runs": null
+       },
+       "resident": {
+        "value": 15597.568,
+        "median": null,
+        "runs": null
+       }
+      },
+      "holding 20 Mpx, nine hashes": {
+       "Python": {
+        "value": 5705.0,
+        "median": null,
+        "runs": null
+       },
+       "resident": {
+        "value": 184238080.0,
+        "median": null,
+        "runs": null
+       },
+       "resident at the peak": {
+        "value": 184238080.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "the same, closed": {
+       "Python": {
+        "value": 5001.0,
+        "median": null,
+        "runs": null
+       },
+       "resident": {
+        "value": 184188928.0,
+        "median": null,
+        "runs": null
+       },
+       "resident at the peak": {
+        "value": 184188928.0,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "Python",
+      "resident",
+      "resident at the peak"
+     ]
+    },
+    {
+     "key": "batch_memory",
+     "title": "Batch memory against threads, 20 Mpx",
+     "about": "hash_files() of 22 copies of the file: the rise of peak resident memory, and the bound libphash states (4 bytes per pixel and the file, per worker).",
+     "unit": "B",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "peak resident rise": {
+       "threads=1": {
+        "value": 86786048.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=2": {
+        "value": 172916736.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=4": {
+        "value": 345309184.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=8": {
+        "value": 626606080.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=11": {
+        "value": 801554432.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "Python allocations": {
+       "threads=1": {
+        "value": 16226.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=2": {
+        "value": 17205.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=4": {
+        "value": 18245.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=8": {
+        "value": 20325.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=11": {
+        "value": 22269.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "libphash's bound": {
+       "threads=1": {
+        "value": 85864264.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=2": {
+        "value": 171728528.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=4": {
+        "value": 343457056.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=8": {
+        "value": 686914112.0,
+        "median": null,
+        "runs": null
+       },
+       "threads=11": {
+        "value": 944506904.0,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "threads=1",
+      "threads=2",
+      "threads=4",
+      "threads=8",
+      "threads=11"
+     ]
+    },
+    {
+     "key": "repeat",
+     "title": "Repetition",
+     "about": "load_bytes() and phash() of 400\u00d7400, 10,000 times on one context after as many to warm up: what stays allocated afterwards (tests/test_memory.py holds every path of the binding to a bound).",
+     "unit": "B",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "10,000 loads and hashes": {
+       "Python, kept": {
+        "value": 0.0,
+        "median": null,
+        "runs": null
+       },
+       "Python, peak": {
+        "value": 432.0,
+        "median": null,
+        "runs": null
+       },
+       "resident, kept": {
+        "value": 65536.0,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "Python, kept",
+      "Python, peak",
+      "resident, kept"
+     ]
+    }
+   ],
+   "notes": [
+    "Each case runs once in a fresh interpreter. *Python* is the peak of the Python allocations the case makes (tracemalloc): the copies the binding makes, exact and the same on every run. *Resident* is the rise of the peak resident memory over the memory before the case: the C library's decoded image and decoder buffers on top of that. libphash keeps a decoded image as 3 bytes per pixel."
+   ]
+  },
+  {
+   "key": "parallel",
+   "title": "4. Parallelism",
+   "tables": [
+    {
+     "key": "scaling_photo",
+     "title": "Throughput against workers, 400\u00d7400",
+     "about": "Images per second for 1000 loads of the file and their pHash, and the speedup over one worker. A process pool is started before it is timed (the next table has that cost) and keeps one context per process.",
+     "unit": "/s",
+     "baseline_row": null,
+     "baseline_column": "1",
+     "rows": {
+      "threads, a context each": {
+       "1": {
+        "value": 3411.9765500001304,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6667.103717400126,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 13237.471986545226,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 18930.878646266232,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 21561.928396989522,
+        "median": null,
+        "runs": null
+       }
+      },
+      "threads, one shared context": {
+       "1": {
+        "value": 3448.7565121028438,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 3350.0061348088207,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 3321.1240506723693,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 3299.4434628467784,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 3295.9431552896663,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ThreadPoolExecutor.map, a context per thread": {
+       "1": {
+        "value": 3314.455202075816,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6324.9139796313075,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 12034.37628529501,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 18605.501966933847,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 21225.69563237586,
+        "median": null,
+        "runs": null
+       }
+      },
+      "hash_files(threads=N)": {
+       "1": {
+        "value": 3345.680286670134,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6729.107171486282,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 13085.63687273425,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 19712.655343648046,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 22885.9571946909,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (spawn), paths sent": {
+       "1": {
+        "value": 3424.228040188706,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6740.393446509586,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 12842.335242247627,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 18633.26525256142,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 21649.39555637102,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (spawn), bytes sent": {
+       "1": {
+        "value": 3575.6986570739537,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6962.663023697982,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 13297.150369256318,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 19678.292589656634,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 22168.30003205215,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (forkserver), paths sent": {
+       "1": {
+        "value": 3409.7103789401153,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6784.799475422797,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 12920.014818993815,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 19222.498036213303,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 19910.91536443556,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (fork), paths sent": {
+       "1": {
+        "value": 3429.5101388995204,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 6765.52222570956,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 12962.763863387274,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 19404.523701044178,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 22200.720104835753,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "1",
+      "2",
+      "4",
+      "8",
+      "11"
+     ]
+    },
+    {
+     "key": "scaling_photo_large",
+     "title": "Throughput against workers, 20 Mpx",
+     "about": "Images per second for 22 loads of the file and their pHash, and the speedup over one worker. A process pool is started before it is timed (the next table has that cost) and keeps one context per process.",
+     "unit": "/s",
+     "baseline_row": null,
+     "baseline_column": "1",
+     "rows": {
+      "threads, a context each": {
+       "1": {
+        "value": 16.67939734207409,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 33.024225335626994,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 58.63168951465519,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 98.72127895850304,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 120.29472188369103,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ThreadPoolExecutor.map, a context per thread": {
+       "1": {
+        "value": 16.879000011401317,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 33.180210032142675,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 58.557430980754404,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 99.47667355678159,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 122.11596437783379,
+        "median": null,
+        "runs": null
+       }
+      },
+      "hash_files(threads=N)": {
+       "1": {
+        "value": 16.90002950766905,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 33.15669230799928,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 58.73166304306567,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 98.33502754008465,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 122.06390602213203,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (spawn), paths sent": {
+       "1": {
+        "value": 16.575127798041414,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 30.293007405748543,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 58.44949421842942,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 98.05572912313356,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 119.70943284428283,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (forkserver), paths sent": {
+       "1": {
+        "value": 16.852999235058586,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 30.459604290033155,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 58.66060507018006,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 98.28251307256049,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 123.4329222095471,
+        "median": null,
+        "runs": null
+       }
+      },
+      "ProcessPoolExecutor (fork), paths sent": {
+       "1": {
+        "value": 16.812031295905193,
+        "median": null,
+        "runs": null
+       },
+       "2": {
+        "value": 30.300536562389098,
+        "median": null,
+        "runs": null
+       },
+       "4": {
+        "value": 58.6962170044502,
+        "median": null,
+        "runs": null
+       },
+       "8": {
+        "value": 98.28397699966007,
+        "median": null,
+        "runs": null
+       },
+       "11": {
+        "value": 121.26933155157823,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "1",
+      "2",
+      "4",
+      "8",
+      "11"
+     ]
+    },
+    {
+     "key": "pool_startup",
+     "title": "Starting a process pool",
+     "about": "A ProcessPoolExecutor of 11 processes, each importing libphash and creating its context, until every one has answered; then shut down.",
+     "unit": "s",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "spawn": {
+       "start and stop": {
+        "value": 0.13566558295860887,
+        "median": 0.14682399993762374,
+        "runs": 8
+       }
+      },
+      "forkserver": {
+       "start and stop": {
+        "value": 0.05885629099793732,
+        "median": 0.06279870797879994,
+        "runs": 16
+       }
+      },
+      "fork": {
+       "start and stop": {
+        "value": 0.009936666931025684,
+        "median": 0.011023917002603412,
+        "runs": 90
+       }
+      }
+     },
+     "columns": [
+      "start and stop"
+     ]
+    },
+    {
+     "key": "asyncio",
+     "title": "An asyncio loop while hashing, 20 Mpx",
+     "about": "How late a task that sleeps 1 ms again and again wakes up while 8 images are hashed: the loop's lag. With the GIL released in C, work handed to a thread leaves the loop responsive.",
+     "unit": "ms",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "hash() in the coroutine: blocks the loop": {
+       "median": {
+        "value": 496.54687503445894,
+        "median": null,
+        "runs": null
+       },
+       "p99": {
+        "value": 496.54687503445894,
+        "median": null,
+        "runs": null
+       },
+       "max": {
+        "value": 496.54687503445894,
+        "median": null,
+        "runs": null
+       }
+      },
+      "idle, as long": {
+       "median": {
+        "value": 0.29347899928689003,
+        "median": null,
+        "runs": null
+       },
+       "p99": {
+        "value": 0.3738330453634262,
+        "median": null,
+        "runs": null
+       },
+       "max": {
+        "value": 0.4695000136271119,
+        "median": null,
+        "runs": null
+       }
+      },
+      "await asyncio.to_thread(hash), one by one": {
+       "median": {
+        "value": 0.2738539953716099,
+        "median": null,
+        "runs": null
+       },
+       "p99": {
+        "value": 0.3460409827530384,
+        "median": null,
+        "runs": null
+       },
+       "max": {
+        "value": 0.3743330491706729,
+        "median": null,
+        "runs": null
+       }
+      },
+      "asyncio.gather of to_thread(hash)": {
+       "median": {
+        "value": 0.2977500446140766,
+        "median": null,
+        "runs": null
+       },
+       "p99": {
+        "value": 0.4941670233383775,
+        "median": null,
+        "runs": null
+       },
+       "max": {
+        "value": 0.4941670233383775,
+        "median": null,
+        "runs": null
+       }
+      },
+      "await asyncio.to_thread(hash_files)": {
+       "median": {
+        "value": 0.2971670366823673,
+        "median": null,
+        "runs": null
+       },
+       "p99": {
+        "value": 1.0640000002458692,
+        "median": null,
+        "runs": null
+       },
+       "max": {
+        "value": 1.0640000002458692,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "median",
+      "p99",
+      "max"
+     ]
+    },
+    {
+     "key": "callbacks",
+     "title": "The batch's progress callback, 400\u00d7400",
+     "about": "hash_files() of 1000 copies of the file, per image: without a callback and with a progress callback that does nothing. The callback takes the GIL on a worker thread of C for every image.",
+     "unit": "s",
+     "baseline_row": "no callback",
+     "baseline_column": null,
+     "rows": {
+      "no callback": {
+       "threads=1": {
+        "value": 0.0003032417080830783,
+        "median": 0.00030596091703046115,
+        "runs": 5
+       },
+       "threads=11": {
+        "value": 4.366495891008526e-05,
+        "median": 4.419987497385591e-05,
+        "runs": 23
+       }
+      },
+      "progress callback": {
+       "threads=1": {
+        "value": 0.00029278645804151895,
+        "median": 0.0003005468749906868,
+        "runs": 5
+       },
+       "threads=11": {
+        "value": 4.3980083079077305e-05,
+        "median": 4.5028915978036824e-05,
+        "runs": 23
+       }
+      }
+     },
+     "columns": [
+      "threads=1",
+      "threads=11"
+     ]
+    }
+   ],
+   "notes": [
+    "Subinterpreters (concurrent.interpreters) need Python 3.14; this run is on 3.12."
+   ]
+  },
+  {
+   "key": "startup",
+   "title": "5. Starting and installing",
+   "tables": [
+    {
+     "key": "import",
+     "title": "import libphash",
+     "about": "A fresh interpreter that imports libphash, against one that imports nothing; -X importtime's cumulative time of the package.",
+     "unit": "s",
+     "baseline_row": "python -c pass",
+     "baseline_column": null,
+     "rows": {
+      "python -c pass": {
+       "wall time": {
+        "value": 0.014578583068214357,
+        "median": 0.015843833913095295,
+        "runs": 62
+       }
+      },
+      "python -c 'import libphash'": {
+       "wall time": {
+        "value": 0.029229333042167127,
+        "median": 0.0300276669440791,
+        "runs": 33
+       },
+       "-X importtime, the package": {
+        "value": 0.01217,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "wall time",
+      "-X importtime, the package"
+     ]
+    },
+    {
+     "key": "size",
+     "title": "Size",
+     "about": "The extension module (libphash and its decoders, linked statically) and, when given, the wheel.",
+     "unit": "B",
+     "baseline_row": null,
+     "baseline_column": null,
+     "rows": {
+      "extension module (_native.abi3.so)": {
+       "bytes": {
+        "value": 1292096.0,
+        "median": null,
+        "runs": null
+       }
+      },
+      "the package's .py files": {
+       "bytes": {
+        "value": 70631.0,
+        "median": null,
+        "runs": null
+       }
+      }
+     },
+     "columns": [
+      "bytes"
+     ]
+    }
+   ],
+   "notes": []
+  }
+ ]
+}
