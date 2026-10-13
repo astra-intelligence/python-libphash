@@ -9,3 +9,11 @@ find_package(phash 2 REQUIRED CONFIG)
 
 add_executable(reference reference.c)
 target_link_libraries(reference PRIVATE phash::phash)
+
+# libphash's examples that examples/ in this repository has Python twins of, built the
+# same way: tests/test_examples.py compares the output of each pair.
+set(LIBPHASH_EXAMPLES "${CMAKE_CURRENT_LIST_DIR}/../../native/libphash/examples")
+foreach(example IN ITEMS load_sources configure hash_distance find_duplicates)
+  add_executable(${example} "${LIBPHASH_EXAMPLES}/${example}.c")
+  target_link_libraries(${example} PRIVATE phash::phash)
+endforeach()

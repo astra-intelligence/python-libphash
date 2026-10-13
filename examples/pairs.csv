@@ -1,0 +1,13 @@
+first,second,label
+../native/libphash/tests/data/photo.jpeg,../native/libphash/tests/data/photo_copy.jpeg,same
+../native/libphash/tests/data/photo.jpeg,../native/libphash/tests/data/photo_color_changed.jpeg,same
+../native/libphash/tests/data/jpeg/s420.jpg,../native/libphash/tests/data/jpeg/s444.jpg,same
+../native/libphash/tests/data/jpeg/s420.jpg,../native/libphash/tests/data/jpeg/progressive.jpg,same
+../native/libphash/tests/data/png/rgb8.png,../native/libphash/tests/data/png/rgb8.webp,same
+../native/libphash/tests/data/photo_complex.png,../native/libphash/tests/data/photo_complex.webp,same
+../native/libphash/tests/data/photo.jpeg,../native/libphash/tests/data/photo.png,different
+../native/libphash/tests/data/photo.jpeg,../native/libphash/tests/data/photo_complex.png,different
+../native/libphash/tests/data/photo.png,../native/libphash/tests/data/photo_complex.png,different
+../native/libphash/tests/data/png/rgb8.png,../native/libphash/tests/data/photo.png,different
+../native/libphash/tests/data/jpeg/s420.jpg,../native/libphash/tests/data/photo.jpeg,different
+../native/libphash/tests/data/jpeg/s420.jpg,../native/libphash/tests/data/png/rgb8.png,different

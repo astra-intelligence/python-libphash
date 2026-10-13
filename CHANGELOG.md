@@ -85,6 +85,10 @@ read [`MIGRATION.md`](MIGRATION.md) before upgrading.
   interchangeable with libphash's), `hash_to_hex()`, `hash_from_hex()`;
   `Digest.from_uint64()`.
 - `libphash_version()`, `build_info()`, `can_decode()`, `digest_info()`.
+- `examples/`: runnable scripts, each checked by the tests against the output its
+  docstring shows: loading from every source, configuration, duplicates in a batch,
+  SQLite storage, nearest hashes with numpy, a BK-tree, concurrency, and choosing a
+  threshold. Four are twins of libphash's C examples and print the same output.
 - Exceptions carry the C error (`code`, `code_name`) and, for a failed load, libphash's
   own message (`detail`); they pickle.
 - Type information: the package is typed (`py.typed`) and checked with mypy and

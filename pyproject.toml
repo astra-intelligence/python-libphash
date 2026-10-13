@@ -65,7 +65,7 @@ Changelog = "https://github.com/gudoshnikovn/python-libphash/blob/main/CHANGELOG
 "libphash" = "https://gudoshnikovn.github.io/libphash/"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "psutil", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "types-psutil", "typing_extensions", "numpy", "Pillow", "mutmut; sys_platform != 'win32'", "lief"]
+dev = ["pytest", "pytest-randomly", "pytest-timeout", "hypothesis", "psutil", "coverage", "mypy", "basedpyright", "ruff", "typos", "setuptools", "types-setuptools", "types-cffi", "types-psutil", "typing_extensions", "numpy", "Pillow", "opencv-python-headless", "mutmut; sys_platform != 'win32'", "lief"]
 
 # Not part of "dev": atheris has wheels for Linux x86-64 and CPython 3.12+ only, and the
 # sanitizer job of CI, which runs the fuzzers, installs it with --group fuzz.
@@ -161,6 +161,7 @@ source_paths = ["src/libphash/"]
 pytest_add_cli_args_test_selection = ["tests/", "--ignore=tests/test_memory.py"]
 also_copy = [
   "CHANGELOG.md",
+  "examples",
   "native/libphash/include",
   "native/libphash/tests/data",
   "tools",
@@ -170,12 +171,12 @@ also_copy = [
 [tool.mypy]
 strict = true
 python_version = "3.10"
-files = ["src", "tests", "tools", "setup.py"]
+files = ["src", "tests", "tools", "examples", "setup.py"]
 mypy_path = ["src", "tools", "typings"]
 
 [tool.basedpyright]
 typeCheckingMode = "strict"
-include = ["src", "tests", "tools", "setup.py"]
+include = ["src", "tests", "tools", "examples", "setup.py"]
 # tools/ is imported by setup.py and the tests through sys.path.
 extraPaths = ["tools"]
 pythonVersion = "3.10"
@@ -220,6 +221,9 @@ convention = "pep257"
 # A fuzz target fails by raising, so its checks are asserts; an error is an outcome to
 # record for each algorithm, not a reason to stop.
 "tools/fuzz_targets.py" = ["S101", "PERF203"]
+# The examples are scripts: they print, and main() is documented by the module, whose
+# docstring holds the command and its output as they are, a line each however long.
+"examples/**" = ["T201", "D103", "E501"]
 # The stub's classes and parameters carry the names of the C types and of the header.
 "src/libphash/_native.pyi" = ["N801", "A002"]
 
