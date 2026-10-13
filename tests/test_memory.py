@@ -188,14 +188,18 @@ def _traced() -> int:
 #: The scenarios whose callbacks run on libphash's worker threads.
 WORKER_CALLBACKS = {"batch", "batch_callback_error"}
 
-# On a free-threaded build, cffi 2.1.1 leaves a few Python objects behind for every
-# thread of C that enters an extern "Python" callback, empty or not; a callback through
-# ctypes from the same threads leaves none. Each batch starts its own workers, so these
-# scenarios grow by a few hundred bytes per step there. Strict: the scenarios pass once
-# cffi frees them, and the mark is then removed.
+# On a free-threaded build, cffi 2.1.1 leaves the argument tuple of an extern "Python"
+# callback behind for every thread of C that calls one: it clears the state of an
+# exited thread from another thread, which leaves the exited thread's freelists
+# uncleared (https://github.com/python-cffi/cffi/issues/286). The callbacks of a batch
+# take arguments, and each batch starts its own workers, so these scenarios grow by a
+# few hundred bytes per step there; a callback through ctypes from the same threads
+# leaves nothing. Strict: the scenarios pass once cffi frees them, and the mark is then
+# removed.
 _CFFI_THREAD_LEAK = pytest.mark.xfail(
     bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
-    reason="cffi keeps objects of each C thread that calls into a free-threaded Python",
+    reason="cffi keeps the argument tuples of each C thread that calls back "
+    "(python-cffi/cffi#286)",
     strict=True,
 )
 
