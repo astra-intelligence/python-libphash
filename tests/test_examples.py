@@ -92,7 +92,9 @@ def c_examples() -> Path:
 
 
 def c_example(directory: Path, name: str) -> Path:
-    for exe in (directory / name, directory / "Release" / f"{name}.exe"):
+    # The examples sit next to the reference: in the build directory, or in its
+    # Release directory under a multi-configuration generator (Visual Studio).
+    for exe in (directory / name, directory / f"{name}.exe"):
         if exe.exists():
             return exe
     pytest.fail(f"the C example {name} is not in {directory}")
