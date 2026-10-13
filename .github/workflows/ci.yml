@@ -225,6 +225,33 @@ jobs:
         path: dist/*.tar.gz
         if-no-files-found: error
 
+  # The wheel with the oldest versions its requirements allow (cffi 2.0 and what it
+  # needs): a module cffi generates needs its own backend or newer, and this job holds
+  # the lower bound in pyproject.toml true. The test tools are installed after, at their
+  # newest.
+  lowest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - uses: ./.github/actions/setup
+
+    - name: Build the wheel
+      run: uv build --wheel
+
+    - name: Install it with the lowest direct requirements
+      run: |
+        uv venv "$RUNNER_TEMP/venv"
+        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install --resolution lowest dist/*.whl
+        VIRTUAL_ENV="$RUNNER_TEMP/venv" uv pip install pytest pytest-timeout hypothesis psutil
+        "$RUNNER_TEMP/venv/bin/python" -c "import cffi; print('cffi', cffi.__version__)"
+
+    - name: pytest
+      run: '"$RUNNER_TEMP/venv/bin/python" -m pytest -rs'
+
   # The test suite with libphash, its decoders and the extension built under Clang's
   # sanitizers by tools/sanitizers.py; the interpreter is not instrumented, so a report
   # is about code of the extension. AddressSanitizer runs with UndefinedBehaviorSanitizer

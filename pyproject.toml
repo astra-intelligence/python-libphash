@@ -111,6 +111,9 @@ before-all = "if command -v dnf >/dev/null; then dnf install -y nasm; elif comma
 
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
+# The oldest macOS the wheels run on, stated rather than left to cibuildwheel's default
+# for each Python; every arm64 Mac runs 11 or later.
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
