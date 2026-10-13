@@ -325,7 +325,9 @@ class _Lib:
     PH_WHASH_FAST: Final[int]
     PH_WHASH_FORCE_INT32_: Final[int]
     PH_WHASH_FULL: Final[int]
+    _libphash_continue: ph_batch_continue_fn
     _libphash_on_progress: ph_batch_progress_fn
+    _libphash_progress: ph_batch_progress_fn
     _libphash_should_continue: ph_batch_continue_fn
     def ph_algorithm_from_name(
         self,

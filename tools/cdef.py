@@ -121,10 +121,14 @@ def header_cdef(header: Path) -> str:
 
 
 #: The batch callbacks: implemented in Python with @ffi.def_extern, so no executable
-#: closure is created at run time (which ffi.callback would need).
+#: closure is created at run time (which ffi.callback would need), and the C functions
+#: libphash calls, which enter them one at a time on a free-threaded CPython
+#: (tools/ffi.py).
 BATCH_CALLBACKS = """
 extern "Python" int _libphash_should_continue(void *user_data);
 extern "Python" void _libphash_on_progress(size_t done, size_t total, void *user_data);
+int (*const _libphash_continue)(void *user_data);
+void (*const _libphash_progress)(size_t done, size_t total, void *user_data);
 """
 
 

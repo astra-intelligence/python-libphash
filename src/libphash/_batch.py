@@ -221,10 +221,10 @@ class _Run:
         check(lib.ph_batch_options_init(self.options))
         self.handle = ffi.new_handle(self)
         self.options.threads = self.threads
-        self.options.should_continue = lib._libphash_should_continue
+        self.options.should_continue = lib._libphash_continue
         self.options.user_data = self.handle
         if self.progress is not None:
-            self.options.on_progress = lib._libphash_on_progress
+            self.options.on_progress = lib._libphash_progress
 
     def __enter__(self) -> Self:
         template = new_context()
