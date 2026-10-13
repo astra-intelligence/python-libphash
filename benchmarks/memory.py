@@ -74,13 +74,20 @@ class Spec:
 
 
 def _peak_rss() -> int:
+    """Return the peak resident memory of this process image, in bytes.
+
+    On Linux, ``ru_maxrss`` keeps the peak of the process image that ``execve``
+    replaced, here the parent's, so the peak is the address space's own ``VmHWM``.
+    """
     if sys.platform == "win32":
         return int(psutil.Process().memory_info().peak_wset)
+    if sys.platform == "linux":
+        with open("/proc/self/status", encoding="ascii") as f:
+            line = next(line for line in f if line.startswith("VmHWM:"))
+        return int(line.split()[1]) * 1024
     import resource  # noqa: PLC0415 -- POSIX only
 
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # Linux counts kibibytes, macOS bytes.
-    return int(peak if sys.platform == "darwin" else peak * 1024)
+    return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
 
 
 def _rss() -> int:

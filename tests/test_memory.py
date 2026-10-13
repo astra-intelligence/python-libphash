@@ -229,8 +229,9 @@ def test_no_growth(step: Callable[[], None]) -> None:
 
 
 # Prints how far the peak resident memory of the process rose over a batch of copies
-# of one image, two per worker: ru_maxrss (KiB on Linux, bytes on macOS) or, on
-# Windows, the peak working set.
+# of one image, two per worker: the peak working set on Windows, VmHWM on Linux (where
+# ru_maxrss keeps the peak of the process image execve replaced, the test runner's),
+# ru_maxrss in bytes on macOS.
 _PEAK_SCRIPT = """
 import sys
 import libphash as ph
@@ -239,9 +240,12 @@ def peak():
     if sys.platform == "win32":
         import psutil
         return psutil.Process().memory_info().peak_wset
+    if sys.platform == "linux":
+        with open("/proc/self/status", encoding="ascii") as f:
+            line = next(line for line in f if line.startswith("VmHWM:"))
+        return int(line.split()[1]) * 1024
     import resource
-    scale = 1 if sys.platform == "darwin" else 1024
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 path, threads = sys.argv[1], int(sys.argv[2])
 ph.hash(path)
