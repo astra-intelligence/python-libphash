@@ -171,11 +171,13 @@ source_paths = ["src/libphash/"]
 # The memory tests repeat every operation hundreds of times, and the benchmarks start
 # interpreters and process pools; neither catches a mutant the other tests miss, and run
 # for each mutant they would multiply the run's time. The packaging tests check what
-# the build writes from libphash's sources, not the package.
+# the build writes from libphash's sources, and the gate's tests the gate over
+# benchmark results, not the package.
 pytest_add_cli_args_test_selection = [
   "tests/",
   "--ignore=tests/test_memory.py",
   "--ignore=tests/test_benchmarks.py",
+  "--ignore=tests/test_benchmark_gate.py",
   "--ignore=tests/test_packaging.py",
 ]
 also_copy = [
