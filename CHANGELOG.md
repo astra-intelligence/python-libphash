@@ -12,6 +12,16 @@ one says what a Python user observes.
 
 Nothing yet.
 
+## [2.0.1.1] - 2026-10-14
+
+The same library, API and hash values as 2.0.1.0.
+
+### Fixed
+
+- The GitHub Release has a build provenance attestation for each wheel, the sdist and the
+  SBOM, checked with `gh attestation verify`; the GitHub Release of 2.0.1.0 has the same
+  files without one. On PyPI, every file of both versions has its PEP 740 attestation.
+
 ## [2.0.1.0] - 2026-10-14
 
 The first release on libphash 2 (2.0.1; 1.4.1 bundles libphash 1.10.4), with a new
@@ -178,5 +188,6 @@ repository.
 | 1.1.0 | 1.3.0 |
 | 1.0.3 | 1.2.0 |
 
-[Unreleased]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.1.0...HEAD
+[Unreleased]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.1.1...HEAD
+[2.0.1.1]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.1.0...v2.0.1.1
 [2.0.1.0]: https://github.com/gudoshnikovn/python-libphash/compare/v1.4.1...v2.0.1.0

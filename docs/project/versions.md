@@ -30,7 +30,7 @@ To see what is installed:
 ```python
 import libphash as ph
 
-ph.__version__            # '2.0.1.0'
+ph.__version__            # '2.0.1.1'
 ph.libphash_version()     # '2.0.1'
 ```
 

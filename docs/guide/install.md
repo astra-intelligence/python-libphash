@@ -32,7 +32,7 @@ To see what an installed wheel carries:
 ```python
 import libphash as ph
 
-print(ph.__version__)            # 2.0.1.0
+print(ph.__version__)            # 2.0.1.1
 print(ph.libphash_version())     # 2.0.1
 print(ph.build_info())           # version=2.0.1 jpeg=libjpeg-turbo png=libpng ...
 ```

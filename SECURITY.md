@@ -90,13 +90,13 @@ run and the tagged commit. PyPI shows them on each file's page; to check a file 
 
 ```bash
 pypi-attestations verify pypi --repository https://github.com/gudoshnikovn/python-libphash \
-    pypi:python_libphash-2.0.1.0.tar.gz
+    pypi:python_libphash-2.0.1.1.tar.gz
 ```
 
 The same files are attached to the GitHub Release with build provenance attestations:
 
 ```bash
-gh attestation verify python_libphash-2.0.1.0.tar.gz --repo gudoshnikovn/python-libphash
+gh attestation verify python_libphash-2.0.1.1.tar.gz --repo gudoshnikovn/python-libphash
 ```
 
 Each wheel carries a software bill of materials (CycloneDX, in
