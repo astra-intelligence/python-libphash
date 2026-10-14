@@ -14,7 +14,7 @@ unrelated picture lands about half the bits away. The package computes nine algo
 in C, decodes JPEG, PNG and WebP with libraries linked into the wheel, and gives the same
 hash for the same file on every platform, bit for bit libphash's.
 
-**Documentation: <https://gudoshnikovn.github.io/python-libphash/>** · the theory
+**[Documentation](https://gudoshnikovn.github.io/python-libphash/)** · the theory
 (algorithms, comparing, choosing a threshold) is on
 [libphash's site](https://gudoshnikovn.github.io/libphash/).
 
