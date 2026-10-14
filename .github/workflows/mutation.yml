@@ -3,14 +3,17 @@ name: Mutation
 # Mutation testing of the package with mutmut: each mutant of src/libphash/ must be
 # caught by the tests or be listed in tests/equivalent_mutants.json with its reason
 # (tools/mutants.py). A run takes about a quarter of an hour, so it is not part of
-# ci.yml: it runs weekly, by hand, and when the package, the list, the gate or this
-# workflow changes.
+# ci.yml: it runs weekly, by hand, and when what decides its outcome changes: the
+# package, the tests (the list among them), mutmut's settings and the versions it runs
+# with (pyproject.toml, uv.lock), the gate or this workflow.
 on:
   push:
     branches: [ main, 'release/**' ]
     paths: &mutation-paths
       - src/**
-      - tests/equivalent_mutants.json
+      - tests/**
+      - pyproject.toml
+      - uv.lock
       - tools/mutants.py
       - .github/workflows/mutation.yml
   pull_request:
