@@ -54,6 +54,15 @@ def test_from_hex_rejects_garbage() -> None:
         Digest.from_hex("bits:xyz")
 
 
+@pytest.mark.parametrize("tail", ["\0", "\0ff", "\udcff", "\u0444"])
+def test_hex_parsers_read_the_whole_text(tail: str) -> None:
+    # C stops at a null byte: the text after it must not be dropped unseen.
+    with pytest.raises(ph.InvalidArgumentError):
+        Digest.from_hex("bits:abcd" + tail)
+    with pytest.raises(ph.InvalidArgumentError):
+        ph.hash_from_hex("0123456789abcdef" + tail)
+
+
 def test_pickle(photo: Path) -> None:
     d = ph.hash(photo, "radial")
     assert pickle.loads(pickle.dumps(d)) == d
@@ -139,6 +148,9 @@ def test_comparing_with_other_types() -> None:
     assert (d == 1) is False
     with pytest.raises(TypeError, match="expected a Digest, got bytes"):
         d.hamming_distance(cast("Digest", b"\1"))
+    for kind in DigestKind:
+        with pytest.raises(TypeError, match="expected a Digest, got int"):
+            Digest(b"\1", kind).similarity(cast("Digest", 1))
 
 
 def test_hash_from_hex_rejects_garbage() -> None:

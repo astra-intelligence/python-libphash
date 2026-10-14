@@ -55,6 +55,10 @@ def test_default_algorithm_is_phash(photo: Path) -> None:
 def test_unknown_algorithm() -> None:
     with pytest.raises(ph.InvalidArgumentError, match="unknown algorithm"):
         ph.hash(data("photo.jpeg"), "sha256")
+    # C stops at a null byte: "phash\0x" is not "phash".
+    for name in ("phash\0x", "phash\0", "phash\udcff", "phas\u0445"):
+        with pytest.raises(ph.InvalidArgumentError, match="unknown algorithm"):
+            ph.hash(data("photo.jpeg"), name)
 
 
 def test_every_source_type_gives_the_same_hash(photo: Path, photo_bytes: bytes) -> None:

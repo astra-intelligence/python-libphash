@@ -275,43 +275,33 @@ class ImageContext:
         others.
         """
         algo = to_algorithm(algorithm)
-        compute = _UINT64_COMPUTE.get(algo)
         with self._lock:
-            ptr = self._live()
-            if compute is not None:
-                out64 = ffi.new("uint64_t *")
-                code = compute(ptr, out64)
-                if code != PH_SUCCESS:
-                    raise make_error(code, context=f"computing {algo}")
-                return int(out64[0])
-            digest = ffi.new("ph_digest_t *")
-            code = lib.ph_compute_digest(ptr, int(algo), digest)
-            if code != PH_SUCCESS:
-                raise make_error(code, context=f"computing {algo}")
-        return digest_from_c(digest)
+            return _compute(self._live(), algo)
 
     def hashes(self, *algorithms: AlgorithmLike) -> dict[Algorithm, int | Digest]:
-        """Compute several hashes at once.
+        """Compute several hashes at once, all of the same loaded image.
 
         The 64-bit ones share their work on the full image (one ``ph_compute_multi``
-        call); digests are computed one by one.
+        call); digests are computed one by one. No other thread loads an image in
+        between.
         """
         algos = [to_algorithm(a) for a in algorithms] or [Algorithm.PHASH]
         uint64 = sorted({a for a in algos if a in _UINT64_COMPUTE})
         result: dict[Algorithm, int | Digest] = {}
-        if uint64:
-            out = ffi.new("uint64_t[]", len(uint64))
-            with self._lock:
-                code = lib.ph_compute_multi(self._live(), uint64_flags(uint64), out)
-            if code != PH_SUCCESS:
-                raise make_error(
-                    code, context="computing " + ", ".join(map(str, uint64))
-                )
-            # Slots follow ascending flag bits, which is ascending Algorithm value.
-            result.update(zip(uint64, (int(v) for v in out), strict=True))
-        for algo in algos:
-            if algo not in result:
-                result[algo] = self.hash(algo)
+        with self._lock:
+            ptr = self._live()
+            if uint64:
+                out = ffi.new("uint64_t[]", len(uint64))
+                code = lib.ph_compute_multi(ptr, uint64_flags(uint64), out)
+                if code != PH_SUCCESS:
+                    raise make_error(
+                        code, context="computing " + ", ".join(map(str, uint64))
+                    )
+                # Slots follow ascending flag bits, which is ascending Algorithm value.
+                result.update(zip(uint64, (int(v) for v in out), strict=True))
+            for algo in algos:
+                if algo not in result:
+                    result[algo] = _compute(ptr, algo)
         return {a: result[a] for a in algos}
 
     def ahash(self) -> int:
@@ -361,6 +351,22 @@ class ImageContext:
         The mean, the standard deviation and the cube root of the third moment.
         """
         return self.hash(Algorithm.COLOR_MOMENTS)
+
+
+def _compute(ptr: ph_context_t_ptr, algo: Algorithm) -> int | Digest:
+    """Compute one hash; the caller holds the context's lock."""
+    compute = _UINT64_COMPUTE.get(algo)
+    if compute is not None:
+        out64 = ffi.new("uint64_t *")
+        code = compute(ptr, out64)
+        if code != PH_SUCCESS:
+            raise make_error(code, context=f"computing {algo}")
+        return int(out64[0])
+    digest = ffi.new("ph_digest_t *")
+    code = lib.ph_compute_digest(ptr, int(algo), digest)
+    if code != PH_SUCCESS:
+        raise make_error(code, context=f"computing {algo}")
+    return digest_from_c(digest)
 
 
 def _config_or_default(config: object) -> Config:

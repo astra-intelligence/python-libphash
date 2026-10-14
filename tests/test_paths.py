@@ -126,3 +126,16 @@ def test_python_read_path_cancels_across_chunks(
     assert [r.source for r in results] == [path] * 300
     assert sum(r.ok for r in results) == 100
     assert all(isinstance(r.error, ph.BatchCancelledError) for r in results[100:])
+
+
+@pytest.mark.usefixtures("files_read_by")
+def test_path_with_a_null_byte_is_refused(photo: Path) -> None:
+    # C would read the path up to the null byte and open another file; open() refuses.
+    refused = pytest.raises(ValueError, match="embedded null byte")
+    with refused:
+        ph.hash(f"{photo}\0.txt")  # bytes given to hash() are an image, not a path
+    for path in (f"{photo}\0.txt", os.fsencode(photo) + b"\0.txt"):
+        with ph.ImageContext() as ctx, refused:
+            ctx.load_file(path)
+        with refused:
+            ph.hash_files([photo, path])

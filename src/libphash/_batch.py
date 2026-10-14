@@ -127,10 +127,10 @@ def _files_via_buffers(
     chunk = max(64, 4 * workers)
     total = len(paths)
     results: list[BatchResult[_P]] = []
-    stopped = False
+    reporter = _ChunkProgress(progress, total)
     for start in range(0, total, chunk):
         part = paths[start : start + chunk]
-        if stopped:
+        if reporter.stopped:
             results += [_cancelled(p) for p in part]
             continue
         data: list[bytes] = []
@@ -146,25 +146,39 @@ def _files_via_buffers(
             algos,
             config=config,
             threads=threads,
-            progress=_shifted(progress, start, total),
+            progress=reporter.at(start),
         )
         for i, (p, r) in enumerate(zip(part, part_results, strict=True)):
             if i in failed:
                 results.append(BatchResult(p, None, failed[i]))
             else:
                 results.append(BatchResult(p, r.hashes, r.error))
-            if r.error is not None and r.error.code == PH_ERR_CANCELLED:
-                stopped = True
     return results
 
 
-def _shifted(
-    progress: ProgressCallback | None, offset: int, total: int
-) -> ProgressCallback | None:
-    """Report a chunk's progress as progress through the whole batch."""
-    if progress is None:
-        return None
-    return lambda done, _total: progress(offset + done, total)
+class _ChunkProgress:
+    """The caller's progress over the chunks of one batch.
+
+    A chunk reports its items as items of the whole batch. Once progress returns False,
+    the batch stops: the chunk cancels what it has not started, and no later chunk runs.
+    """
+
+    def __init__(self, progress: ProgressCallback | None, total: int) -> None:
+        self.progress = progress
+        self.total = total
+        self.stopped = False
+
+    def at(self, offset: int) -> ProgressCallback | None:
+        progress = self.progress
+        if progress is None:
+            return None
+
+        def report(done: int, _total: int) -> bool:
+            if progress(offset + done, self.total) is False:
+                self.stopped = True
+            return not self.stopped
+
+        return report
 
 
 def _cancelled(source: _S) -> BatchResult[_S]:

@@ -150,6 +150,22 @@ def test_progress_returning_false_cancels() -> None:
 
 
 @pytest.mark.usefixtures("files_read_by")
+def test_progress_returning_false_on_the_last_item_of_a_chunk() -> None:
+    # The binding reads files in chunks of 64 when it reads them itself: a stop that
+    # leaves nothing of its chunk to cancel still stops the batch.
+    calls: list[int] = []
+
+    def until_64(done: int, _total: int) -> bool:
+        calls.append(done)
+        return done < 64
+
+    results = ph.hash_files(paths() * 22, threads=1, progress=until_64)
+    assert calls == list(range(1, 65))
+    assert sum(r.ok for r in results) == 64
+    assert all(isinstance(r.error, ph.BatchCancelledError) for r in results[64:])
+
+
+@pytest.mark.usefixtures("files_read_by")
 def test_exception_in_progress_propagates_and_stops() -> None:
     calls: list[int] = []
 

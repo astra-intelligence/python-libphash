@@ -3,12 +3,17 @@ import gc
 import pickle
 import threading
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from conftest import data, exactly
 
 import libphash as ph
+import libphash._context
+from libphash._digest import digest_from_c
+
+if TYPE_CHECKING:
+    from libphash._native import ph_digest_t_ptr
 
 
 def test_close_is_idempotent_and_use_after_close_raises(photo: Path) -> None:
@@ -209,3 +214,32 @@ def test_hashes_of_digests_only(photo: Path) -> None:
             ph.Algorithm.RADIAL: ctx.radial(),
             ph.Algorithm.BMH: ctx.bmh(),
         }
+
+
+def test_hashes_are_all_of_one_image(
+    photo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A load from another thread waits until hashes() has computed every algorithm.
+    other = data("photo_rotated_90.jpeg")
+    loader: list[threading.Thread] = []
+
+    def load_meanwhile(c_digest: "ph_digest_t_ptr") -> ph.Digest:
+        if not loader:
+            loader.append(threading.Thread(target=ctx.load_file, args=(other,)))
+            loader[0].start()
+        loader[0].join(timeout=0.2)
+        assert loader[0].is_alive()
+        return digest_from_c(c_digest)
+
+    with ph.ImageContext() as ctx:
+        ctx.load_file(photo)
+        monkeypatch.setattr(libphash._context, "digest_from_c", load_meanwhile)
+        hashes = ctx.hashes("phash", "bmh", "radial")
+        loader[0].join()
+        monkeypatch.undo()
+        assert hashes == {
+            ph.Algorithm.PHASH: ph.hash(photo),
+            ph.Algorithm.BMH: ph.hash(photo, "bmh"),
+            ph.Algorithm.RADIAL: ph.hash(photo, "radial"),
+        }
+        assert ctx.phash() == ph.hash(other)

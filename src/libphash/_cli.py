@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import io
 import json
 import os
 import platform
@@ -69,6 +70,7 @@ def main(argv: Sequence[str] | None = None, prog: str = "libphash") -> int:
         config = parse_config(args.config)
     except (ValueError, TypeError) as exc:
         parser.error(str(exc))
+    write_any_file_name(sys.stdout)
     try:
         status: int = args.run(args, config, sys.stdout, sys.stderr)
         sys.stdout.flush()
@@ -460,6 +462,20 @@ def group_hashes(
 
 
 # --- Helpers --------------------------------------------------------------------------
+
+
+def write_any_file_name(stream: TextIO) -> None:
+    """Let the output stream write every file name it is given.
+
+    A POSIX file name is bytes, which need not decode in the file system encoding: the
+    command line and os.walk() give the undecodable bytes as surrogates, written back as
+    those bytes, the name as ``ls`` prints it. A Windows file name is Unicode, which the
+    console's code page may not hold: a character it lacks is written as an escape.
+    Either way the output goes on instead of stopping at UnicodeEncodeError.
+    """
+    if isinstance(stream, io.TextIOWrapper) and stream.errors == "strict":
+        errors = "backslashreplace" if sys.platform == "win32" else "surrogateescape"
+        stream.reconfigure(errors=errors)
 
 
 def _expand(paths: Sequence[str]) -> Iterator[str]:

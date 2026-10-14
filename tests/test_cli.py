@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from typing import TextIO, cast
 
 import pytest
 from conftest import data
@@ -642,3 +644,56 @@ def test_a_directory_named_dash_is_still_standard_input(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(photo_bytes)))
     assert run(capsys, "hash", "-")[1] == f"{ph.hash_to_hex(ph.hash(photo))}  -\n"
+
+
+@pytest.mark.parametrize(
+    ("platform", "written"),
+    [
+        ("linux", b"b\xff.jpg\n"),
+        ("darwin", b"b\xff.jpg\n"),
+        ("win32", b"b\\udcff.jpg\n"),
+    ],
+)
+def test_output_takes_any_file_name(
+    monkeypatch: pytest.MonkeyPatch, platform: str, written: bytes
+) -> None:
+    # An undecodable POSIX name reaches the output as its bytes; a Windows name the
+    # code page lacks, as an escape. Neither stops the output.
+    monkeypatch.setattr(sys, "platform", platform)
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii")
+    _cli.write_any_file_name(stream)
+    stream.write("b\udcff.jpg\n")
+    stream.flush()
+    assert raw.getvalue() == written
+
+
+def test_output_errors_chosen_by_the_caller_are_kept() -> None:
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="ascii", errors="replace")
+    _cli.write_any_file_name(stream)
+    assert stream.errors == "replace"
+    # A stream that is not a TextIOWrapper cannot be reconfigured and is left alone.
+    _cli.write_any_file_name(cast("TextIO", SimpleNamespace(errors="strict")))
+
+
+def test_main_lets_stdout_write_any_file_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert sys.stdout.errors == "strict"
+    run(capsys, "info")
+    assert sys.stdout.errors != "strict"
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="needs a file system that stores raw bytes"
+)
+def test_hash_prints_a_name_that_is_not_utf8(tmp_path: Path, photo: Path) -> None:
+    name = os.fsencode(tmp_path) + b"/\xff\xfe.jpg"
+    shutil.copyfile(photo, name)
+    done = subprocess.run(  # noqa: S603 -- the test's own interpreter
+        [sys.executable, "-m", "libphash", "hash", str(tmp_path)],
+        capture_output=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout == ph.hash_to_hex(ph.hash(photo)).encode() + b"  " + name + b"\n"

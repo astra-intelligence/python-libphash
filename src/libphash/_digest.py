@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, NoReturn, TypeVar, final
 from ._algorithms import DigestKind
 from ._errors import PH_SUCCESS, make_error
 from ._native import ffi, lib
+from ._sources import encode_text
 from .exceptions import DigestKindError, InvalidArgumentError
 
 if TYPE_CHECKING:
@@ -68,7 +69,7 @@ class Digest:
     def from_hex(cls, text: str) -> Digest:
         """Parse the text form written by :meth:`hex` (``"<kind>:<hex>"``)."""
         out = ffi.new("ph_digest_t *")
-        code = lib.ph_digest_from_hex(text.encode("ascii", "replace"), out)
+        code = lib.ph_digest_from_hex(encode_text(text), out)
         if code != PH_SUCCESS:
             raise make_error(code, context=f"parsing digest {text[:40]!r}")
         return digest_from_c(out)
@@ -121,8 +122,7 @@ class Digest:
     def _pair(
         self, other: object, metric: str
     ) -> tuple[ph_digest_t_ptr, ph_digest_t_ptr]:
-        if not isinstance(other, Digest):
-            raise TypeError(f"expected a Digest, got {type(other).__name__}")
+        other = _as_digest(other)
         allowed = _METRIC_KINDS[metric]
         for d in (self, other):
             if d._kind != DigestKind.UNSPECIFIED and d._kind not in allowed:
@@ -174,6 +174,7 @@ class Digest:
         1.0. ``VECTOR16`` (ColorMoments) has no normalized similarity: use
         :meth:`l2_distance`.
         """
+        other = _as_digest(other)
         kind = self._kind if self._kind != DigestKind.UNSPECIFIED else other._kind
         if kind == DigestKind.BITS:
             a, b = self._pair(other, "hamming_distance")
@@ -208,6 +209,12 @@ def digest_to_c(digest: Digest) -> ph_digest_t_ptr:
     c_digest.kind = int(digest.kind)
     ffi.memmove(c_digest.data, data, len(data))
     return c_digest
+
+
+def _as_digest(other: object) -> Digest:
+    if not isinstance(other, Digest):
+        raise TypeError(f"expected a Digest, got {type(other).__name__}")
+    return other
 
 
 def _wrong_kind(metric: str, kind: DigestKind) -> NoReturn:
@@ -277,7 +284,7 @@ def hash_to_hex(value: int) -> str:
 def hash_from_hex(text: str) -> int:
     """Parse the 16 hex digits written by :func:`hash_to_hex`."""
     out = ffi.new("uint64_t *")
-    code = lib.ph_hash_from_hex(text.encode("ascii", "replace"), out)
+    code = lib.ph_hash_from_hex(encode_text(text), out)
     if code != PH_SUCCESS:
         raise make_error(code, context=f"parsing hash {text[:40]!r}")
     return int(out[0])

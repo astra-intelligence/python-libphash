@@ -81,13 +81,27 @@ def encode_path(path: StrPath) -> bytes:
     """Return the path as the bytes the C library gets.
 
     They are the file system encoding of the path: on POSIX, the path's bytes unchanged.
+    A path with a null byte raises ValueError, as ``open()`` does: C would read only the
+    part before it and open another file.
     """
     try:
-        return os.fsencode(path)
+        encoded = os.fsencode(path)
     except TypeError:
         raise TypeError(
             f"expected a path (str, bytes or os.PathLike), got {type(path).__name__}"
         ) from None
+    if b"\0" in encoded:
+        raise ValueError("embedded null byte")
+    return encoded
+
+
+def encode_text(text: str) -> bytes:
+    """Return a name or a hex form as the ASCII string a C parser reads.
+
+    C reads up to the first null byte, so a null byte, like any other character outside
+    ASCII, becomes ``?``, which no parser of libphash accepts.
+    """
+    return text.encode("ascii", "replace").replace(b"\0", b"?")
 
 
 def is_pil_image(obj: object) -> bool:

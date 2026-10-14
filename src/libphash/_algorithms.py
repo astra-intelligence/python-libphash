@@ -5,6 +5,7 @@ from typing import Union
 
 from ._errors import PH_SUCCESS
 from ._native import ffi, lib
+from ._sources import encode_text
 from .exceptions import InvalidArgumentError
 
 
@@ -59,7 +60,7 @@ def to_algorithm(value: object) -> Algorithm:
         return value
     if isinstance(value, str):
         out = ffi.new("ph_algorithm_t *")
-        if lib.ph_algorithm_from_name(value.encode(), out) != PH_SUCCESS:
+        if lib.ph_algorithm_from_name(encode_text(value), out) != PH_SUCCESS:
             names = ", ".join(str(a) for a in Algorithm)
             raise InvalidArgumentError(
                 f"unknown algorithm {value!r}; expected one of {names}"

@@ -16,10 +16,10 @@
       ]
     },
     {
-      "function": "libphash._batch._files_via_buffers",
+      "function": "libphash._batch._ChunkProgress.__init__",
       "reason": "None is false, as False is.",
       "mutants": [
-        ["-stopped = False", "+stopped = None"]
+        ["-self.stopped = False", "+self.stopped = None"]
       ]
     },
     {
@@ -112,13 +112,6 @@
       ]
     },
     {
-      "function": "libphash._digest.Digest.from_hex",
-      "reason": "Codec names are case-insensitive.",
-      "mutants": [
-        ["-code = lib.ph_digest_from_hex(text.encode(\"ascii\", \"replace\"), out)", "+code = lib.ph_digest_from_hex(text.encode(\"ASCII\", \"replace\"), out)"]
-      ]
-    },
-    {
       "function": "libphash._digest.Digest.from_uint64",
       "reason": "int.to_bytes() is big-endian by default from Python 3.11, which mutmut runs; the 3.10 test jobs need the argument.",
       "mutants": [
@@ -130,13 +123,6 @@
       "reason": "Codec names are case-insensitive.",
       "mutants": [
         ["-return str(ffi.string(out).decode(\"ascii\"))", "+return str(ffi.string(out).decode(\"ASCII\"))"]
-      ]
-    },
-    {
-      "function": "libphash._digest.hash_from_hex",
-      "reason": "Codec names are case-insensitive.",
-      "mutants": [
-        ["-code = lib.ph_hash_from_hex(text.encode(\"ascii\", \"replace\"), out)", "+code = lib.ph_hash_from_hex(text.encode(\"ASCII\", \"replace\"), out)"]
       ]
     },
     {
