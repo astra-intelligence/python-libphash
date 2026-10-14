@@ -12,7 +12,7 @@ one says what a Python user observes.
 
 Nothing yet.
 
-## [2.0.1.0] - Unreleased
+## [2.0.1.0] - 2026-10-14
 
 The first release on libphash 2 (2.0.1; 1.4.1 bundles libphash 1.10.4), with a new
 Python API. **Hash values change**, and code written for 1.x does not run unchanged:
