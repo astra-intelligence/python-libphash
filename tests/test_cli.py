@@ -265,10 +265,14 @@ def test_compare_uses_the_measures_of_each_kind(
     bmh, cmh = (a.bmh(), b.bmh()), (a.color_hash(), b.color_hash())
     cm, rad = (a.color_moments(), b.color_moments()), (a.radial(), b.radial())
     assert out.splitlines() == [
-        f"phash          distance {ph.hamming_distance(pa, pb)}, "
-        f"similarity {ph.similarity(pa, pb):.4f}",
-        f"bmh            distance {bmh[0].hamming_distance(bmh[1])}, "
-        f"similarity {bmh[0].similarity(bmh[1]):.4f}",
+        (
+            f"phash          distance {ph.hamming_distance(pa, pb)}, "
+            f"similarity {ph.similarity(pa, pb):.4f}"
+        ),
+        (
+            f"bmh            distance {bmh[0].hamming_distance(bmh[1])}, "
+            f"similarity {bmh[0].similarity(bmh[1]):.4f}"
+        ),
         f"color_hash     similarity {cmh[0].similarity(cmh[1]):.4f}",
         f"color_moments  l2_distance {cm[0].l2_distance(cm[1]):.4f}",
         f"radial         similarity {rad[0].similarity(rad[1]):.4f}",
@@ -524,8 +528,10 @@ HELP: dict[tuple[str, ...], list[str]] = {
     (): [
         "usage: libphash",
         "Perceptual image hashing with libphash.",
-        "Exit status: 0 when every file was hashed, 1 when some were not, 2 for a "
-        "wrong command line.",
+        (
+            "Exit status: 0 when every file was hashed, 1 when some were not, 2 for a "
+            "wrong command line."
+        ),
         "commands:",
         "versions and build of the bundled libphash, for bug reports",
         "hash image files",
@@ -539,29 +545,37 @@ HELP: dict[tuple[str, ...], list[str]] = {
     ],
     ("hash",): [
         "PATH [PATH ...]",
-        "Print the hashes of image files: 64-bit hashes as 16 hex digits, digests as "
-        "kind:hex. A directory is searched recursively for images; '-' reads one image "
-        "from standard input.",
+        (
+            "Print the hashes of image files: 64-bit hashes as 16 hex digits, digests "
+            "as kind:hex. A directory is searched recursively for images; '-' reads "
+            "one image from standard input."
+        ),
         "--algorithm NAME[,NAME...]",
         f"algorithms to compute (default: phash); {ALGORITHM_NAMES}",
         "--config FIELD=VALUE",
-        "a Config field, as auto_orient=false or gray_weights=38,75,15; repeat for "
-        "several",
+        (
+            "a Config field, as auto_orient=false or gray_weights=38,75,15; repeat for "
+            "several"
+        ),
         "write the results as JSON",
     ],
     ("compare",): [
         "IMAGE IMAGE",
-        "Compare two images with each algorithm, by the measures that belong to it: "
-        "Hamming distance and similarity for bit hashes, similarity for ColorHash and "
-        "Radial, L2 distance for ColorMoments.",
+        (
+            "Compare two images with each algorithm, by the measures that belong to "
+            "it: Hamming distance and similarity for bit hashes, similarity for "
+            "ColorHash and Radial, L2 distance for ColorMoments."
+        ),
         f"algorithms to compare with (default: phash); {ALGORITHM_NAMES}",
     ],
     ("dupes",): [
         "PATH [PATH ...]",
-        "Hash every image with a 64-bit algorithm on all CPUs and print the groups of "
-        "images whose hashes differ in at most --max-bits bits, one group per "
-        "paragraph. Measure the threshold on your own images: "
-        "https://gudoshnikovn.github.io/libphash/theory/comparing/",
+        (
+            "Hash every image with a 64-bit algorithm on all CPUs and print the groups "
+            "of images whose hashes differ in at most --max-bits bits, one group per "
+            "paragraph. Measure the threshold on your own images: "
+            "https://gudoshnikovn.github.io/libphash/theory/comparing/"
+        ),
         "--max-bits N",
         "the most bits two hashes of one picture may differ in, 0 to 64",
         "--algorithm NAME",

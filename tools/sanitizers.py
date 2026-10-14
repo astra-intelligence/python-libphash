@@ -49,8 +49,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 #: applies to C as part of ``undefined``, so the extension would not load with it.
 FLAGS = {
     "address": (
-        "-fsanitize=address,undefined,fuzzer-no-link -fno-sanitize=function"
-        " -fno-sanitize-recover=all",
+        (
+            "-fsanitize=address,undefined,fuzzer-no-link -fno-sanitize=function"
+            " -fno-sanitize-recover=all"
+        ),
         "-fsanitize=address,undefined",
     ),
     "thread": ("-fsanitize=thread", "-fsanitize=thread"),

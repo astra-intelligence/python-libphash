@@ -188,8 +188,10 @@ def markdown(report: Report) -> str:
     out += [f"- **{key}:** {value}" for key, value in env.items()]
     out += [
         "",
-        "A time is the minimum / the median of the runs, per item of work; in "
-        "parentheses, the difference from the baseline and the ratio to it.",
+        (
+            "A time is the minimum / the median of the runs, per item of work; in "
+            "parentheses, the difference from the baseline and the ratio to it."
+        ),
     ]
     for block in report.blocks:
         out += ["", f"## {block.title}"]

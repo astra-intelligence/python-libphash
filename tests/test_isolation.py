@@ -22,7 +22,7 @@ MODULES = ["libphash", "PIL.Image", "cv2"]
 
 
 def present(name: str) -> bool:
-    return importlib.util.find_spec(name.split(".")[0]) is not None
+    return importlib.util.find_spec(name.split(".", maxsplit=1)[0]) is not None
 
 
 SCRIPT = """

@@ -175,6 +175,7 @@ def test_a_slower_runner_is_not_a_regression(tmp_path: Path) -> None:
     ],
 )
 def test_thresholds_against_c(  # noqa: PLR0913 -- the case and the fixtures
+    *,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
     key: str,

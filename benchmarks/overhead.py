@@ -387,7 +387,7 @@ def _digests(block: Block, cbench: CBench, effort: Effort) -> None:
             "64-bit Hamming: (a ^ b).bit_count()",
             None,
             "",
-            lambda: (ha ^ hb).bit_count(),
+            lambda: (ha ^ hb).bit_count(),  # noqa: PLW0108 -- the XOR is timed too
         ),
         ("64-bit similarity()", None, "", lambda: ph.similarity(ha, hb)),
     ]

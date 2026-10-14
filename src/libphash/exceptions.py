@@ -87,7 +87,7 @@ class ImageIOError(PhashError, OSError):
         )
 
 
-def _rebuild_io(  # noqa: PLR0913 -- one argument per pickled field
+def _rebuild_io(  # noqa: PLR0913, PLR0917 -- pickle passes one argument per field
     cls: type[ImageIOError],
     message: str,
     code: int,

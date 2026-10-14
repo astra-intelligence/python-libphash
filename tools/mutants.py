@@ -116,9 +116,11 @@ def main() -> int:
     lines = [
         "## Mutation testing",
         "",
-        f"{len(mutants)} mutants: {caught} caught "
-        f"({100 * caught / len(mutants):.1f} %), {len(equivalent)} equivalent, "
-        f"{len(unexplained)} unexplained.",
+        (
+            f"{len(mutants)} mutants: {caught} caught "
+            f"({100 * caught / len(mutants):.1f} %), {len(equivalent)} equivalent, "
+            f"{len(unexplained)} unexplained."
+        ),
         "",
         ", ".join(f"{status}: {n}" for status, n in sorted(counts.items())),
     ]
