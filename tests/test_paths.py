@@ -131,7 +131,8 @@ def test_python_read_path_cancels_across_chunks(
 @pytest.mark.usefixtures("files_read_by")
 def test_path_with_a_null_byte_is_refused(photo: Path) -> None:
     # C would read the path up to the null byte and open another file; open() refuses.
-    refused = pytest.raises(ValueError, match="embedded null byte")
+    # CPython says "null character" of a str path on Windows, "null byte" elsewhere.
+    refused = pytest.raises(ValueError, match="embedded null")
     with refused:
         ph.hash(f"{photo}\0.txt")  # bytes given to hash() are an image, not a path
     for path in (f"{photo}\0.txt", os.fsencode(photo) + b"\0.txt"):

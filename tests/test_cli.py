@@ -649,9 +649,9 @@ def test_a_directory_named_dash_is_still_standard_input(
 @pytest.mark.parametrize(
     ("platform", "written"),
     [
-        ("linux", b"b\xff.jpg\n"),
-        ("darwin", b"b\xff.jpg\n"),
-        ("win32", b"b\\udcff.jpg\n"),
+        ("linux", b"b\xff.jpg"),
+        ("darwin", b"b\xff.jpg"),
+        ("win32", b"b\\udcff.jpg"),
     ],
 )
 def test_output_takes_any_file_name(
@@ -663,7 +663,7 @@ def test_output_takes_any_file_name(
     raw = io.BytesIO()
     stream = io.TextIOWrapper(raw, encoding="ascii")
     _cli.write_any_file_name(stream)
-    stream.write("b\udcff.jpg\n")
+    stream.write("b\udcff.jpg")
     stream.flush()
     assert raw.getvalue() == written
 
