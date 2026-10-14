@@ -18,12 +18,17 @@ def c_version() -> str:
     return str(ffi.string(lib.ph_version()).decode())
 
 
+def release_version() -> str:
+    # A release candidate, X.Y.Z.NrcK, is the candidate for release X.Y.Z.N.
+    return re.sub(r"rc\d+$", "", libphash.__version__)
+
+
 def test_version_has_four_numbers() -> None:
-    assert re.fullmatch(r"\d+\.\d+\.\d+\.\d+", libphash.__version__)
+    assert re.fullmatch(r"\d+\.\d+\.\d+\.\d+(rc\d+)?", libphash.__version__)
 
 
 def test_first_three_numbers_are_the_bundled_libphash() -> None:
-    assert libphash.__version__.rsplit(".", 1)[0] == c_version()
+    assert release_version().rsplit(".", 1)[0] == c_version()
 
 
 def test_distribution_metadata_matches() -> None:
@@ -52,5 +57,5 @@ def test_version_number_encodes_the_version() -> None:
 
 def test_changelog_has_an_entry_for_the_version() -> None:
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    heading = re.escape(f"## [{libphash.__version__}] - ")
+    heading = re.escape(f"## [{release_version()}] - ")
     assert re.search(rf"^{heading}", changelog, re.MULTILINE)
