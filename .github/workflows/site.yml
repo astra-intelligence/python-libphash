@@ -58,17 +58,20 @@ jobs:
     # the pages made from the README and the changelog, and the root-relative links of
     # 404.html are mapped onto the build, which is what that address serves;
     # links into main on GitHub are skipped, since a branch may add the file they name.
-    # The changelog's compare links name the tag of the release being prepared, which a
-    # release branch does not have yet: they are checked on main and on a tag.
+    # The changelog's compare links name the tag of the release, which exists only once
+    # the tag is pushed, after main: they are checked on a tag. A server that is busy (503)
+    # or limits the rate (429) says nothing about the link, so neither fails the check;
+    # a link that is gone is a 404.
     - name: Check the links
       uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
       with:
         args: >-
           --root-dir ${{ github.workspace }}/build/site --include-fragments --no-progress
+          --accept '200..=299,429,503'
           --remap '^https://gudoshnikovn\.github\.io/python-libphash/(.*)$ file://${{ github.workspace }}/build/site/$1'
           --remap '^file://(.*)/build/site/python-libphash(/.*)?$ file://$1/build/site$2'
           --exclude '^https://github\.com/gudoshnikovn/python-libphash/(blob|tree)/main/'
-          ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) && ' ' || '--exclude ^https://github\.com/gudoshnikovn/python-libphash/compare/' }}
+          ${{ startsWith(github.ref, 'refs/tags/') && ' ' || '--exclude ^https://github\.com/gudoshnikovn/python-libphash/compare/' }}
           'build/site/**/*.html'
         fail: true
 
