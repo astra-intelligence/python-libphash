@@ -163,7 +163,7 @@ def hash(
 
 
 def libphash_version() -> str:
-    """Return the version of the bundled libphash (``"2.0.1"``).
+    """Return the version of the bundled libphash (``"2.0.2"``).
 
     It is the first three numbers of ``__version__``.
     """
@@ -174,7 +174,7 @@ def build_info() -> str:
     """Return how the bundled libphash was built.
 
     The string lists the version, decoders, threads and SIMD:
-    ``"version=2.0.1 jpeg=libjpeg-turbo png=libpng ..."``.
+    ``"version=2.0.2 jpeg=libjpeg-turbo png=libpng ..."``.
     """
     return str(ffi.string(lib.ph_get_build_info()).decode())
 

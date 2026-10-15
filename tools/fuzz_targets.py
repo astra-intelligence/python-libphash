@@ -101,23 +101,23 @@ def _load_outcomes(load: Callable[[ph.ImageContext], None]) -> dict[str, Outcome
 LOAD_CONFIG = ph.Config(max_pixels=4 * 1024 * 1024)
 
 
-def _decode(load: Callable[[ph.ImageContext], None]) -> str | tuple[int, int, int]:
+def _decode(
+    load: Callable[[ph.ImageContext], None],
+) -> str | tuple[int, int, int, dict[ph.Algorithm, Outcome]]:
     with ph.ImageContext(LOAD_CONFIG) as ctx:
         try:
             load(ctx)
         except ph.PhashError as e:
             return type(e).__name__
-        _outcomes(ctx, ph.Algorithm)
-        return ctx.width, ctx.height, ctx.channels
+        return ctx.width, ctx.height, ctx.channels, _outcomes(ctx, ph.Algorithm)
 
 
 def load(data: bytes) -> None:
-    """Check that encoded bytes load alike from memory and from a file, and hash.
+    """Check that encoded bytes load and hash alike from memory and from a file.
 
     Every hash of a loaded image runs, and only a :class:`libphash.PhashError` may
-    refuse it. The hashes of the two loads are not compared: libphash 2.0.1 decodes TGA
-    with stb_image, which leaves the rows past the end of a truncated file
-    uninitialized, so that such a file hashes differently from load to load.
+    refuse it. Both loads must give the same image and the same hashes: a decoder
+    that hands back pixels it never wrote would hash the same bytes differently.
     """
     from_bytes = _decode(lambda ctx: ctx.load_bytes(data))
     from_file = _decode(lambda ctx: ctx.load_fileobj(io.BytesIO(data)))

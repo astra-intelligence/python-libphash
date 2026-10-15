@@ -12,6 +12,27 @@ one says what a Python user observes.
 
 Nothing yet.
 
+## [2.0.2.0] - 2026-10-15
+
+Bundles libphash 2.0.2. The API and the hash values are those of 2.0.1.1; only the
+files below are answered differently.
+
+### Security
+
+- **A truncated TGA or HDR file raises `CorruptDataError` instead of being hashed from
+  uninitialized memory.** The stb_image decoder of libphash 2.0.1, in every wheel,
+  decoded an uncompressed TGA or a narrow HDR whose pixel data ended early as a whole
+  image, the missing pixels being whatever memory held, so the same file hashed
+  differently from load to load. libphash 2.0.2 rejects such a file
+  ([GHSA-xjg6-832m-2xwg](https://github.com/gudoshnikovn/libphash/security/advisories/GHSA-xjg6-832m-2xwg)).
+
+### Fixed
+
+- **A FIFO with no writer raises `ImageIOError` at once.** On Linux and macOS,
+  `hash()`, `ImageContext.load_file()` and the `libphash` command waited for a writer
+  that never came, and one such path among those of `hash_files()` held up its worker
+  and the rest of the batch. It is "not a regular file", as a device is.
+
 ## [2.0.1.1] - 2026-10-14
 
 The same library, API and hash values as 2.0.1.0.
@@ -188,6 +209,7 @@ repository.
 | 1.1.0 | 1.3.0 |
 | 1.0.3 | 1.2.0 |
 
-[Unreleased]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.1.1...HEAD
+[Unreleased]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.2.0...HEAD
+[2.0.2.0]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.1.1...v2.0.2.0
 [2.0.1.1]: https://github.com/gudoshnikovn/python-libphash/compare/v2.0.1.0...v2.0.1.1
 [2.0.1.0]: https://github.com/gudoshnikovn/python-libphash/compare/v1.4.1...v2.0.1.0

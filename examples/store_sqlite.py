@@ -10,7 +10,7 @@ settings beside the hashes: hashes are comparable only when both match. Run::
 
 prints::
 
-    stored 4 images with libphash 2.0.1
+    stored 4 images with libphash 2.0.2
     within 10 bits of native/libphash/tests/data/photo.jpeg:
        0  native/libphash/tests/data/photo.jpeg
        0  native/libphash/tests/data/photo_copy.jpeg

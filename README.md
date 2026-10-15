@@ -62,7 +62,7 @@ vulnerability: see [SECURITY.md](https://github.com/gudoshnikovn/python-libphash
 
 The version is `X.Y.Z.N`: `X.Y.Z` is the bundled libphash, `N` the revision of the
 binding. Hash values depend on `X.Y.Z` and the settings only, so
-`pip install "python-libphash==2.0.1.*"` keeps a stored collection comparable while
+`pip install "python-libphash==2.0.2.*"` keeps a stored collection comparable while
 taking the binding's fixes. Upgrading from 1.x changes hash values and the API: read
 [MIGRATION.md](https://github.com/gudoshnikovn/python-libphash/blob/main/MIGRATION.md).
 

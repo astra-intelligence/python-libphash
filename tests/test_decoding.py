@@ -9,11 +9,17 @@ import sys
 import threading
 import zlib
 from pathlib import Path
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 from conftest import DATA, data, libjpeg_turbo
 
 import libphash as ph
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+_T = TypeVar("_T")
 
 JPEG_VARIANTS = sorted(p.name for p in (DATA / "jpeg").glob("*.jpg"))
 PNG_VARIANTS = [
@@ -179,19 +185,61 @@ def test_a_device_is_not_a_regular_file() -> None:
         ph.hash(Path(os.devnull))
 
 
+def _returns_at_once(fifo: Path, call: Callable[[], _T]) -> _T:
+    """Return what ``call`` returns, failing if it waits for a writer of ``fifo``."""
+    result: list[_T] = []
+    caller = threading.Thread(target=lambda: result.append(call()))
+    caller.start()
+    caller.join(timeout=5)
+    if caller.is_alive():  # the call waits in open(): a writer releases it
+        os.close(os.open(fifo, os.O_WRONLY))
+        caller.join()
+        pytest.fail("a load of a FIFO with no writer did not return")
+    return result[0]
+
+
+def _hash_error(path: Path) -> ph.PhashError | None:
+    try:
+        ph.hash(path)
+    except ph.PhashError as e:
+        return e
+    return None
+
+
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFOs")
-def test_a_fifo_is_not_a_regular_file(tmp_path: Path) -> None:
+def test_a_fifo_with_no_writer_is_not_a_regular_file(tmp_path: Path) -> None:
     fifo = tmp_path / "pipe.jpg"
     os.mkfifo(fifo)
-    # libphash opens the path before it checks it, and opening a FIFO for reading waits
-    # for a writer: the writer is there.
-    writer = threading.Thread(target=lambda: os.close(os.open(fifo, os.O_WRONLY)))
-    writer.start()
-    try:
-        with pytest.raises(ph.ImageIOError, match="not a regular file"):
-            ph.hash(fifo)
-    finally:
-        writer.join(timeout=5)
-        if writer.is_alive():  # libphash never opened the FIFO: release the writer
-            os.close(os.open(fifo, os.O_RDONLY | os.O_NONBLOCK))
-            writer.join()
+    error = _returns_at_once(fifo, lambda: _hash_error(fifo))
+    assert isinstance(error, ph.ImageIOError)
+    assert "not a regular file" in str(error)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFOs")
+def test_a_fifo_in_a_batch_fails_alone(tmp_path: Path) -> None:
+    fifo = tmp_path / "pipe.jpg"
+    os.mkfifo(fifo)
+    paths = [data("photo.jpeg"), fifo, data("photo.jpeg")]
+    results = _returns_at_once(fifo, lambda: ph.hash_files(paths, "ahash", threads=1))
+    assert [r.ok for r in results] == [True, False, True]
+    assert isinstance(results[1].error, ph.ImageIOError)
+
+
+#: A 2x2 uncompressed 24-bit TGA: an 18-byte header, then the pixels in one block.
+TGA_2X2 = bytes.fromhex("0000020000000000000000000200020018000000ff00ff00ff0000ffffff")
+#: A 2x2 flat (narrower than 8) Radiance HDR: a 45-byte header, then RGBE pixels.
+HDR_2X2 = b"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 2 +X 2\n" + bytes.fromhex(
+    "80000080008000800000808080808080"
+)
+
+
+@pytest.mark.parametrize(
+    ("image", "header"), [(TGA_2X2, 18), (HDR_2X2, 45)], ids=["tga", "hdr"]
+)
+def test_truncated_pixel_data_is_corrupt(image: bytes, header: int) -> None:
+    ph.hash(image, "ahash")
+    # A decoder that hands back an image whose pixels stop early hands back pixels
+    # nobody wrote, and the same bytes would hash differently from load to load.
+    for size in range(header, len(image)):
+        with pytest.raises(ph.CorruptDataError):
+            ph.hash(image[:size], "ahash")

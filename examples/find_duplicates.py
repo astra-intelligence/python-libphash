@@ -9,7 +9,7 @@ of libphash's ``examples/find_duplicates.c``: the same files give the same outpu
 
 prints::
 
-    # algorithm=phash version=2000001 native-jpeg=1
+    # algorithm=phash version=2000002 native-jpeg=1
     7eb66192bc394247  native/libphash/tests/data/photo.jpeg
     7eb66192bc394247  native/libphash/tests/data/photo_copy.jpeg
     0100000101000139  native/libphash/tests/data/photo.png
